@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { StereoEffect } from 'three/addons/effects/StereoEffect.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 // Minimal device-orientation look control (the old three.js addon of this
 // name was removed from the library; this replaces it for cardboard mode).
@@ -55,7 +59,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.4;
+renderer.toneMappingExposure = 1.1;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.xr.enabled = true;
@@ -64,6 +68,14 @@ document.getElementById('vr-button-container').appendChild(VRButton.createButton
 const stereoEffect = new StereoEffect(renderer);
 stereoEffect.setSize(window.innerWidth, window.innerHeight);
 stereoEffect.eyeSeparation = 0.064;
+
+const composer = new EffectComposer(renderer);
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.55, // strength
+  0.4,  // radius
+  0.86  // threshold — only the brightest highlights (sky, muzzle flash, lenses) bloom
+);
 
 let cardboardMode = false;
 let orientationControls = null;
@@ -87,8 +99,8 @@ cardboardBtn.addEventListener('click', async () => {
 });
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x8fb8d8);
-scene.fog = new THREE.Fog(0x8fb8d8, 25, 70);
+scene.background = new THREE.Color(0xb9c7d2);
+scene.fog = new THREE.Fog(0xb9c7d2, 28, 75);
 
 const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 100);
 
@@ -98,11 +110,17 @@ rig.position.set(0, 1.6, 6);
 rig.add(camera);
 scene.add(rig);
 
+composer.setSize(window.innerWidth, window.innerHeight);
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(bloomPass);
+composer.addPass(new OutputPass());
+
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
   stereoEffect.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
 });
 
 // --- Room (Refinery-inspired blockout: floor, walls, pipe cover) ---
@@ -139,12 +157,13 @@ for (let i = 0; i < 6; i++) {
   obstacles.push(pipe);
 }
 
-const hemi = new THREE.HemisphereLight(0xffffff, 0x9aa7af, 1.4);
+const hemi = new THREE.HemisphereLight(0xdfe8ee, 0x8a8270, 1.0);
 scene.add(hemi);
-const ambient = new THREE.AmbientLight(0xffffff, 0.55);
+const ambient = new THREE.AmbientLight(0xc9d4da, 0.4);
 scene.add(ambient);
-const dirLight = new THREE.DirectionalLight(0xffffff, 2.2);
-dirLight.position.set(10, 15, 5);
+// Low, slightly warm overcast-industrial sun (matches a hazy refinery sky).
+const dirLight = new THREE.DirectionalLight(0xfff2d8, 2.6);
+dirLight.position.set(18, 22, -8);
 dirLight.castShadow = true;
 dirLight.shadow.mapSize.set(2048, 2048);
 dirLight.shadow.camera.near = 1;
@@ -155,6 +174,10 @@ dirLight.shadow.camera.top = 25;
 dirLight.shadow.camera.bottom = -25;
 dirLight.shadow.bias = -0.001;
 scene.add(dirLight);
+// Cool bounce/fill light from the opposite side so shadows aren't pure black.
+const fillLight = new THREE.DirectionalLight(0xaecbe0, 0.5);
+fillLight.position.set(-12, 8, 14);
+scene.add(fillLight);
 
 // --- Map dressing: crates, barriers, distant skyline for depth/realism ---
 const crateMat = new THREE.MeshStandardMaterial({ color: 0x7a5a36, roughness: 0.95, metalness: 0.02 });
@@ -654,6 +677,9 @@ function addSniperScope(group, bodyTopY, barrelLen) {
   group.add(sideTurret);
 }
 
+const railMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, metalness: 0.5, roughness: 0.6 });
+const magMat = new THREE.MeshStandardMaterial({ color: 0x232323, metalness: 0.3, roughness: 0.7 });
+
 const gunMeshes = WEAPONS.map((w) => {
   const group = new THREE.Group();
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.3), gunMat);
@@ -665,6 +691,32 @@ const gunMeshes = WEAPONS.map((w) => {
   const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.07), gunMat);
   grip.position.set(0, -0.13, 0.08);
   group.add(grip);
+
+  // Top rail strip for a more detailed silhouette.
+  const rail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.012, 0.22), railMat);
+  rail.position.set(0, 0.058, -0.08);
+  group.add(rail);
+
+  const isRifle = w.mode !== 'SEMI' || w.magSize > 12;
+  if (isRifle) {
+    // Curved magazine and a forward grip/handguard for the long guns.
+    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.16, 0.06), magMat);
+    mag.position.set(0, -0.16, -0.02);
+    mag.rotation.x = -0.18;
+    group.add(mag);
+    const handguard = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, w.barrelLen * 0.55), railMat);
+    handguard.position.set(0, 0.0, -0.15 - w.barrelLen * 0.2);
+    group.add(handguard);
+    const foregrip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.1, 0.04), gunMat);
+    foregrip.position.set(0, -0.08, -0.15 - w.barrelLen * 0.4);
+    group.add(foregrip);
+  }
+  if (w.mode === 'BOLT') {
+    // Stock extends back for the sniper rifle's silhouette.
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.22), gunMat);
+    stock.position.set(0, -0.02, 0.26);
+    group.add(stock);
+  }
 
   if (w.mode === 'BOLT') {
     addSniperScope(group, 0.05, w.barrelLen);
@@ -1320,7 +1372,9 @@ renderer.setAnimationLoop(() => {
   update(dt);
   if (!renderer.xr.isPresenting && cardboardMode) {
     stereoEffect.render(scene, camera);
-  } else {
+  } else if (renderer.xr.isPresenting) {
     renderer.render(scene, camera);
+  } else {
+    composer.render();
   }
 });
