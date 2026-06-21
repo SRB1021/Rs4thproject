@@ -9,14 +9,20 @@
 <body>
 <canvas id="game"></canvas>
 <div id="crosshair"></div>
+<div id="damage-flash"></div>
 
 <div id="hud">
-  <div id="ammo">Ammo: 30/30</div>
+  <div id="hud-left">
+    <div id="health">HP: 100</div>
+    <div id="weapon-name">MP-Sidearm</div>
+    <div id="ammo">Ammo: 12/12</div>
+  </div>
   <div id="score">Score: 0</div>
 </div>
 
 <div id="touch-controls">
   <div id="stick-move" class="stick"><div class="stick-knob"></div></div>
+  <button id="switch-btn">SWITCH</button>
   <button id="fire-btn">FIRE</button>
   <div id="stick-look" class="stick"><div class="stick-knob"></div></div>
 </div>

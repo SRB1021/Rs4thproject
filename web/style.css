@@ -28,6 +28,31 @@ html, body {
   pointer-events: none;
 }
 
+#hud-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+#health {
+  font-weight: bold;
+  color: #e74c3c;
+}
+
+#weapon-name {
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+#damage-flash {
+  position: fixed;
+  inset: 0;
+  background: rgba(220,30,30,0);
+  pointer-events: none;
+  transition: background 0.08s ease-out;
+  z-index: 5;
+}
+
 #touch-controls {
   position: fixed;
   inset: 0;
@@ -71,6 +96,21 @@ html, body {
   color: #fff;
   font-weight: bold;
   font-size: 12px;
+  pointer-events: auto;
+}
+
+#switch-btn {
+  position: absolute;
+  right: 150px;
+  bottom: 150px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.12);
+  border: 2px solid rgba(255,255,255,0.4);
+  color: #fff;
+  font-weight: bold;
+  font-size: 10px;
   pointer-events: auto;
 }
 
