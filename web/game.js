@@ -1,7 +1,36 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { StereoEffect } from 'three/addons/effects/StereoEffect.js';
-import { DeviceOrientationControls } from 'three/addons/controls/DeviceOrientationControls.js';
+
+// Minimal device-orientation look control (the old three.js addon of this
+// name was removed from the library; this replaces it for cardboard mode).
+class DeviceOrientationControls {
+  constructor(object) {
+    this.object = object;
+    this.enabled = true;
+    this.deviceOrientation = null;
+    this.screenOrientation = window.orientation || 0;
+    this._onDeviceOrientation = (e) => { this.deviceOrientation = e; };
+    this._onScreenOrientation = () => { this.screenOrientation = window.orientation || 0; };
+    window.addEventListener('deviceorientation', this._onDeviceOrientation);
+    window.addEventListener('orientationchange', this._onScreenOrientation);
+  }
+  update() {
+    if (!this.enabled || !this.deviceOrientation) return;
+    const alpha = THREE.MathUtils.degToRad(this.deviceOrientation.alpha || 0);
+    const beta = THREE.MathUtils.degToRad(this.deviceOrientation.beta || 0);
+    const gamma = THREE.MathUtils.degToRad(this.deviceOrientation.gamma || 0);
+    const orient = THREE.MathUtils.degToRad(this.screenOrientation || 0);
+    const euler = new THREE.Euler(beta, alpha, -gamma, 'YXZ');
+    this.object.quaternion.setFromEuler(euler);
+    this.object.quaternion.multiply(new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5)));
+    this.object.quaternion.multiply(new THREE.Quaternion(0, 0, 0, 1).setFromAxisAngle(new THREE.Vector3(0, 0, 1), -orient));
+  }
+  dispose() {
+    window.removeEventListener('deviceorientation', this._onDeviceOrientation);
+    window.removeEventListener('orientationchange', this._onScreenOrientation);
+  }
+}
 
 if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
   document.body.classList.add('touch-device');
@@ -358,6 +387,11 @@ const GEAR = [
   { name: 'Defuse Kit', effect: 'Halves defuse time' },
 ];
 
+let weaponIndex = 0;
+function currentWeapon() {
+  return WEAPONS[weaponIndex];
+}
+
 // --- First-person weapon view-models ---
 const viewModelRig = new THREE.Group();
 viewModelRig.position.set(0.22, -0.2, -0.4);
@@ -465,7 +499,6 @@ function playFootstep() {
   osc.stop(ctx.currentTime + 0.08);
 }
 
-let weaponIndex = 0;
 let reloading = false;
 let lastFireTime = -999;
 const raycaster = new THREE.Raycaster();
@@ -554,10 +587,6 @@ readyBtn.addEventListener('click', () => {
     Promise.resolve(canvas.requestPointerLock()).catch(() => {});
   }
 });
-
-function currentWeapon() {
-  return WEAPONS[weaponIndex];
-}
 
 function updateHud() {
   const w = currentWeapon();
