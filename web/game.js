@@ -22,6 +22,8 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.4;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.xr.enabled = true;
 document.getElementById('vr-button-container').appendChild(VRButton.createButton(renderer));
 
@@ -72,15 +74,18 @@ window.addEventListener('resize', () => {
 // --- Room (Refinery-inspired blockout: floor, walls, pipe cover) ---
 const floor = new THREE.Mesh(
   new THREE.PlaneGeometry(40, 40),
-  new THREE.MeshStandardMaterial({ color: 0x7a8a93 })
+  new THREE.MeshStandardMaterial({ color: 0x7a8a93, roughness: 0.95, metalness: 0.05 })
 );
 floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
 scene.add(floor);
 
-const wallMat = new THREE.MeshStandardMaterial({ color: 0x9aa7af });
+const wallMat = new THREE.MeshStandardMaterial({ color: 0x9aa7af, roughness: 0.9, metalness: 0.1 });
 function addWall(x, z, w, d, h = 4) {
   const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
   wall.position.set(x, h / 2, z);
+  wall.castShadow = true;
+  wall.receiveShadow = true;
   scene.add(wall);
   return wall;
 }
@@ -90,39 +95,65 @@ obstacles.push(addWall(0, 20, 40, 1));
 obstacles.push(addWall(-20, 0, 1, 40));
 obstacles.push(addWall(20, 0, 1, 40));
 
-const pipeMat = new THREE.MeshStandardMaterial({ color: 0x8d9aa1 });
+const pipeMat = new THREE.MeshStandardMaterial({ color: 0x8d9aa1, roughness: 0.4, metalness: 0.6 });
 for (let i = 0; i < 6; i++) {
   const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 3, 12), pipeMat);
   pipe.position.set(-8 + i * 3, 1.5, -2 + (i % 2) * 2);
+  pipe.castShadow = true;
+  pipe.receiveShadow = true;
   scene.add(pipe);
   obstacles.push(pipe);
 }
 
-const hemi = new THREE.HemisphereLight(0xffffff, 0x9aa7af, 2.2);
+const hemi = new THREE.HemisphereLight(0xffffff, 0x9aa7af, 1.4);
 scene.add(hemi);
-const ambient = new THREE.AmbientLight(0xffffff, 0.9);
+const ambient = new THREE.AmbientLight(0xffffff, 0.55);
 scene.add(ambient);
-const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
+const dirLight = new THREE.DirectionalLight(0xffffff, 2.2);
 dirLight.position.set(10, 15, 5);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(2048, 2048);
+dirLight.shadow.camera.near = 1;
+dirLight.shadow.camera.far = 60;
+dirLight.shadow.camera.left = -25;
+dirLight.shadow.camera.right = 25;
+dirLight.shadow.camera.top = 25;
+dirLight.shadow.camera.bottom = -25;
+dirLight.shadow.bias = -0.001;
 scene.add(dirLight);
 
 // --- Humanoid enemies (PMC soldiers, no blood: white-flash + spark burst on hit) ---
 const enemyHitMeshes = [];
 const enemies = [];
-const uniformMat = new THREE.MeshStandardMaterial({ color: 0x4b5320 });
-const skinMat = new THREE.MeshStandardMaterial({ color: 0xc89a72 });
-const visorMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1c });
+const camoColors = [0x4b5320, 0x3c4a3a, 0x5a5042, 0x44473e];
+const skinMat = new THREE.MeshStandardMaterial({ color: 0xc89a72, roughness: 0.8 });
+const visorMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.3, metalness: 0.4 });
+const vestMat = new THREE.MeshStandardMaterial({ color: 0x202020, roughness: 0.85 });
+const bootMat = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.9 });
 
 function buildEnemy() {
   const group = new THREE.Group();
+  const uniformMat = new THREE.MeshStandardMaterial({
+    color: camoColors[Math.floor(Math.random() * camoColors.length)],
+    roughness: 0.85,
+    metalness: 0.05,
+  });
 
   const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 0.85, 4, 8), uniformMat);
   torso.position.y = 1.1;
   group.add(torso);
 
+  const vest = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.55, 0.22), vestMat);
+  vest.position.set(0, 1.2, 0.04);
+  group.add(vest);
+
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 12), skinMat);
   head.position.y = 1.75;
   group.add(head);
+
+  const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12, 0, Math.PI * 2, 0, Math.PI * 0.6), vestMat);
+  helmet.position.y = 1.8;
+  group.add(helmet);
 
   const visor = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.08, 0.05), visorMat);
   visor.position.set(0, 1.78, 0.18);
@@ -144,8 +175,18 @@ function buildEnemy() {
   legR.position.set(0.15, 0.4, 0);
   group.add(legR);
 
+  const bootGeo = new THREE.BoxGeometry(0.14, 0.12, 0.24);
+  const bootL = new THREE.Mesh(bootGeo, bootMat);
+  bootL.position.set(-0.15, 0.06, 0.04);
+  group.add(bootL);
+  const bootR = new THREE.Mesh(bootGeo, bootMat);
+  bootR.position.set(0.15, 0.06, 0.04);
+  group.add(bootR);
+
   group.traverse((child) => {
     if (child.isMesh) {
+      child.castShadow = true;
+      child.receiveShadow = true;
       child.userData.enemyRoot = group;
       enemyHitMeshes.push(child);
     }
@@ -436,10 +477,28 @@ const loadoutScreen = document.getElementById('loadout-screen');
 const loadoutList = document.getElementById('loadout-list');
 const gearList = document.getElementById('gear-list');
 const readyBtn = document.getElementById('ready-btn');
+const weaponCategoryBtn = document.getElementById('weapon-category');
+const gearCategoryBtn = document.getElementById('gear-category');
+const weaponCategoryValue = document.getElementById('weapon-category-value');
+const gearCategoryValue = document.getElementById('gear-category-value');
 let selectedLoadoutIndex = 0;
 const selectedGear = new Set();
 
+weaponCategoryBtn.addEventListener('click', () => {
+  loadoutList.classList.toggle('expanded');
+  gearList.classList.remove('expanded');
+});
+gearCategoryBtn.addEventListener('click', () => {
+  gearList.classList.toggle('expanded');
+  loadoutList.classList.remove('expanded');
+});
+
 function renderLoadoutScreen() {
+  weaponCategoryValue.textContent = WEAPONS[selectedLoadoutIndex].name;
+  gearCategoryValue.textContent = selectedGear.size
+    ? Array.from(selectedGear).map(i => GEAR[i].name).join(', ')
+    : 'None';
+
   loadoutList.innerHTML = '';
   WEAPONS.forEach((w, i) => {
     const card = document.createElement('div');
@@ -454,6 +513,7 @@ function renderLoadoutScreen() {
     card.addEventListener('click', () => {
       selectedLoadoutIndex = i;
       renderLoadoutScreen();
+      loadoutList.classList.add('expanded');
     });
     loadoutList.appendChild(card);
   });
@@ -470,6 +530,7 @@ function renderLoadoutScreen() {
       if (selectedGear.has(i)) selectedGear.delete(i);
       else selectedGear.add(i);
       renderLoadoutScreen();
+      gearList.classList.add('expanded');
     });
     gearList.appendChild(card);
   });

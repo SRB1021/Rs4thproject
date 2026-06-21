@@ -34,10 +34,17 @@
 <div id="loadout-screen">
   <h1>TACTICAL BREACH</h1>
   <p>Choose your loadout</p>
-  <h2>WEAPON</h2>
-  <div id="loadout-list"></div>
-  <h2>GEAR</h2>
-  <div id="gear-list"></div>
+
+  <div class="loadout-section">
+    <button class="loadout-category" id="weapon-category">WEAPON: <span id="weapon-category-value">MP-Sidearm</span> &#9662;</button>
+    <div id="loadout-list" class="loadout-options"></div>
+  </div>
+
+  <div class="loadout-section">
+    <button class="loadout-category" id="gear-category">GEAR: <span id="gear-category-value">None</span> &#9662;</button>
+    <div id="gear-list" class="loadout-options"></div>
+  </div>
+
   <button id="ready-btn">READY</button>
 </div>
 
