@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Tactical Breach</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body class="game-hidden">
+<canvas id="game"></canvas>
+<div id="crosshair"><div id="crosshair-dot"></div></div>
+<div id="damage-flash"></div>
+
+<div id="hud">
+  <div id="hud-top">
+    <div id="top-bars">
+      <div id="top-health-bar"><div id="top-health-fill"></div></div>
+      <div id="top-armor-bar"><div id="top-armor-fill"></div></div>
+    </div>
+    <div id="score">0</div>
+  </div>
+
+  <div id="hud-left">
+    <div id="health">100</div>
+    <div id="health-bar"><div id="health-bar-fill"></div></div>
+    <div id="weapon-name">MP-Sidearm</div>
+    <div id="gear-name">Gear: None</div>
+  </div>
+
+  <div id="hud-right">
+    <div id="ammo-mode">SEMI</div>
+    <div id="ammo">12/12</div>
+  </div>
+</div>
+
+<div id="touch-controls">
+  <div id="stick-move" class="stick"><div class="stick-knob"></div></div>
+  <button id="switch-btn" type="button">SWITCH</button>
+  <button id="gear-btn" type="button">GEAR</button>
+  <button id="ads-btn" type="button">ADS</button>
+  <button id="fire-btn" type="button">FIRE</button>
+  <div id="stick-look" class="stick"><div class="stick-knob"></div></div>
+</div>
+
+<div id="vr-button-container"></div>
+<button id="cardboard-btn" type="button">CARDBOARD VR</button>
+
+<div id="loadout-screen">
+  <h1>TACTICAL BREACH</h1>
+  <p>Choose your loadout</p>
+
+  <div class="loadout-section">
+    <button class="loadout-category" id="weapon-category" type="button" aria-expanded="false">WEAPON: <span id="weapon-category-value">MP-Sidearm</span> <span class="caret">&#9662;</span></button>
+    <div id="loadout-list" class="loadout-options"></div>
+  </div>
+
+  <div class="loadout-section">
+    <button class="loadout-category" id="gear-category" type="button" aria-expanded="false">GEAR: <span id="gear-category-value">None</span> <span class="caret">&#9662;</span></button>
+    <div id="gear-list" class="loadout-options"></div>
+  </div>
+
+  <button id="ready-btn" type="button">READY</button>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/build/three.module.js",
+    "three/addons/": "./vendor/three/examples/jsm/"
+  }
+}
+</script>
+<script type="module" src="game.js"></script>
+</body>
+</html>
