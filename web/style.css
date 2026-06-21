@@ -92,6 +92,26 @@ html, body {
   color: #fff !important;
 }
 
+#cardboard-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10;
+  padding: 10px 16px;
+  background: rgba(0,0,0,0.6);
+  border: 1px solid rgba(255,255,255,0.4);
+  color: #fff;
+  font-family: -apple-system, system-ui, sans-serif;
+  font-size: 13px;
+  border-radius: 4px;
+}
+
+body.cardboard-mode #touch-controls,
+body.cardboard-mode #crosshair,
+body.cardboard-mode #hud {
+  display: none;
+}
+
 #crosshair {
   position: fixed;
   top: 50%;

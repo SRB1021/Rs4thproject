@@ -1,16 +1,44 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
+import { StereoEffect } from 'three/addons/effects/StereoEffect.js';
+import { DeviceOrientationControls } from 'three/addons/controls/DeviceOrientationControls.js';
 
 const canvas = document.getElementById('game');
 const ammoEl = document.getElementById('ammo');
 const scoreEl = document.getElementById('score');
 const crosshair = document.getElementById('crosshair');
+const cardboardBtn = document.getElementById('cardboard-btn');
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.xr.enabled = true;
 document.getElementById('vr-button-container').appendChild(VRButton.createButton(renderer));
+
+const stereoEffect = new StereoEffect(renderer);
+stereoEffect.setSize(window.innerWidth, window.innerHeight);
+stereoEffect.eyeSeparation = 0.064;
+
+let cardboardMode = false;
+let orientationControls = null;
+
+cardboardBtn.addEventListener('click', async () => {
+  if (typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission) {
+    try {
+      await DeviceOrientationEvent.requestPermission();
+    } catch (e) {
+      // permission denied or unsupported; cardboard mode still works via touch/mouse look
+    }
+  }
+  cardboardMode = !cardboardMode;
+  document.body.classList.toggle('cardboard-mode', cardboardMode);
+  cardboardBtn.textContent = cardboardMode ? 'EXIT CARDBOARD' : 'CARDBOARD VR';
+
+  if (cardboardMode && !orientationControls) {
+    orientationControls = new DeviceOrientationControls(camera);
+  }
+  if (canvas.requestFullscreen) canvas.requestFullscreen().catch(() => {});
+});
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x2c333a);
@@ -28,6 +56,7 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  stereoEffect.setSize(window.innerWidth, window.innerHeight);
 });
 
 // --- Room (Refinery-inspired blockout: floor, walls, pipe cover) ---
@@ -285,8 +314,13 @@ const clock = new THREE.Clock();
 
 function update(dt) {
   if (!renderer.xr.isPresenting) {
-    crosshair.style.display = 'block';
-    camera.rotation.set(pitch, yaw, 0, 'YXZ');
+    crosshair.style.display = cardboardMode ? 'none' : 'block';
+
+    if (cardboardMode && orientationControls) {
+      orientationControls.update();
+    } else {
+      camera.rotation.set(pitch, yaw, 0, 'YXZ');
+    }
 
     let dx = (moveState.r - moveState.l) + moveVec.x;
     let dy = (moveState.b - moveState.f) - moveVec.y;
@@ -302,7 +336,7 @@ function update(dt) {
       rig.position.addScaledVector(right, dx * speed);
     }
 
-    if (Math.hypot(lookVec.x, lookVec.y) > 0.1) {
+    if (!cardboardMode && Math.hypot(lookVec.x, lookVec.y) > 0.1) {
       yaw -= lookVec.x * dt * 2.5;
       pitch -= lookVec.y * dt * 2.5;
       pitch = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, pitch));
@@ -350,8 +384,19 @@ function update(dt) {
   }
 }
 
+renderer.xr.addEventListener('sessionstart', () => {
+  cardboardBtn.style.display = 'none';
+});
+renderer.xr.addEventListener('sessionend', () => {
+  cardboardBtn.style.display = 'block';
+});
+
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05);
   update(dt);
-  renderer.render(scene, camera);
+  if (!renderer.xr.isPresenting && cardboardMode) {
+    stereoEffect.render(scene, camera);
+  } else {
+    renderer.render(scene, camera);
+  }
 });
