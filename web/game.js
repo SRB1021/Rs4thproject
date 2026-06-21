@@ -167,7 +167,7 @@ function makeSurfaceTexture({ base, grain = 18, streaks = 0, size = 256 }) {
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
 }
-function makeRoughnessTexture(size = 256, base = 200, grain = 50) {
+function makeRoughnessTexture(size = 512, base = 200, grain = 50) {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
   const ctx = canvas.getContext('2d');
@@ -182,19 +182,51 @@ function makeRoughnessTexture(size = 256, base = 200, grain = 50) {
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   return texture;
 }
+// Reuses a roughness-style grayscale buffer as a cheap bump map so flat
+// faces pick up faint relief under the directional light instead of
+// looking perfectly smooth.
+function makeBumpTexture(size = 512, grain = 70, blotches = 24) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#808080';
+  ctx.fillRect(0, 0, size, size);
+  const imgData = ctx.getImageData(0, 0, size, size);
+  for (let i = 0; i < imgData.data.length; i += 4) {
+    const v = 128 + (Math.random() - 0.5) * grain;
+    imgData.data[i] = imgData.data[i + 1] = imgData.data[i + 2] = v;
+  }
+  ctx.putImageData(imgData, 0, 0);
+  ctx.globalAlpha = 0.35;
+  for (let i = 0; i < blotches; i++) {
+    ctx.fillStyle = Math.random() > 0.5 ? '#fff' : '#000';
+    ctx.beginPath();
+    ctx.arc(Math.random() * size, Math.random() * size, 4 + Math.random() * 18, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  return texture;
+}
 
-const concreteMap = makeSurfaceTexture({ base: [122, 138, 147], grain: 22, streaks: 10 });
-concreteMap.repeat.set(8, 8);
-const concreteRough = makeRoughnessTexture(256, 215, 40);
-concreteRough.repeat.set(8, 8);
+const maxAniso = renderer.capabilities.getMaxAnisotropy();
+function tile(tex, x, y) {
+  tex.repeat.set(x, y);
+  tex.anisotropy = maxAniso;
+  return tex;
+}
 
-const metalMap = makeSurfaceTexture({ base: [154, 167, 175], grain: 16, streaks: 14 });
-metalMap.repeat.set(3, 1.5);
-const metalRough = makeRoughnessTexture(256, 110, 60);
-metalRough.repeat.set(3, 1.5);
+const concreteMap = tile(makeSurfaceTexture({ base: [122, 138, 147], grain: 26, streaks: 16, size: 512 }), 8, 8);
+const concreteRough = tile(makeRoughnessTexture(512, 215, 45), 8, 8);
+const concreteBump = tile(makeBumpTexture(512, 60, 30), 8, 8);
 
-const woodMap = makeSurfaceTexture({ base: [122, 90, 54], grain: 26, streaks: 18 });
-woodMap.repeat.set(2, 2);
+const metalMap = tile(makeSurfaceTexture({ base: [154, 167, 175], grain: 20, streaks: 22, size: 512 }), 3, 1.5);
+const metalRough = tile(makeRoughnessTexture(512, 110, 70), 3, 1.5);
+const metalBump = tile(makeBumpTexture(512, 90, 40), 3, 1.5);
+
+const woodMap = tile(makeSurfaceTexture({ base: [122, 90, 54], grain: 30, streaks: 24, size: 512 }), 2, 2);
+const woodBump = tile(makeBumpTexture(512, 50, 14), 2, 2);
 
 // --- Room (Refinery-inspired blockout: floor, walls, pipe cover) ---
 const floor = new THREE.Mesh(
@@ -203,6 +235,8 @@ const floor = new THREE.Mesh(
     color: 0xffffff,
     map: concreteMap,
     roughnessMap: concreteRough,
+    bumpMap: concreteBump,
+    bumpScale: 0.04,
     roughness: 1,
     metalness: 0.05,
   })
@@ -215,6 +249,8 @@ const wallMat = new THREE.MeshStandardMaterial({
   color: 0xffffff,
   map: metalMap,
   roughnessMap: metalRough,
+  bumpMap: metalBump,
+  bumpScale: 0.03,
   roughness: 1,
   metalness: 0.15,
 });
@@ -236,6 +272,8 @@ const pipeMat = new THREE.MeshStandardMaterial({
   color: 0xffffff,
   map: metalMap,
   roughnessMap: metalRough,
+  bumpMap: metalBump,
+  bumpScale: 0.02,
   roughness: 0.6,
   metalness: 0.7,
 });
@@ -271,7 +309,14 @@ fillLight.position.set(-12, 8, 14);
 scene.add(fillLight);
 
 // --- Map dressing: crates, barriers, distant skyline for depth/realism ---
-const crateMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: woodMap, roughness: 0.95, metalness: 0.02 });
+const crateMat = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+  map: woodMap,
+  bumpMap: woodBump,
+  bumpScale: 0.05,
+  roughness: 0.95,
+  metalness: 0.02,
+});
 function addCrate(x, z, size = 1.1) {
   const crate = new THREE.Mesh(new THREE.BoxGeometry(size, size, size), crateMat);
   crate.position.set(x, size / 2, z);
@@ -287,6 +332,8 @@ const barrierMat = new THREE.MeshStandardMaterial({
   color: 0xffffff,
   map: metalMap,
   roughnessMap: metalRough,
+  bumpMap: metalBump,
+  bumpScale: 0.025,
   roughness: 0.85,
   metalness: 0.2,
 });
@@ -303,6 +350,60 @@ function addBarrier(x, z, w = 2.4, rotY = 0) {
 addBarrier(-3, 6, 3, 0.3);
 addBarrier(9, -8, 3, -0.4);
 addBarrier(-12, -6, 3.5, 0.6);
+
+// --- Storage tanks + elevated catwalk (refinery set-dressing) ---
+const tankMat = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+  map: metalMap,
+  roughnessMap: metalRough,
+  bumpMap: metalBump,
+  bumpScale: 0.03,
+  roughness: 0.5,
+  metalness: 0.65,
+});
+function addStorageTank(x, z, radius = 2.2, height = 5) {
+  const tank = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, height, 20), tankMat);
+  tank.position.set(x, height / 2, z);
+  tank.castShadow = true;
+  tank.receiveShadow = true;
+  scene.add(tank);
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(radius, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), tankMat);
+  dome.position.set(x, height, z);
+  dome.castShadow = true;
+  scene.add(dome);
+  obstacles.push(tank);
+  return tank;
+}
+addStorageTank(-16, -14, 2.4, 6);
+addStorageTank(-13, -15.5, 1.8, 4.5);
+addStorageTank(15, 13, 2.2, 5.5);
+
+const railMatDress = new THREE.MeshStandardMaterial({ color: 0x3a4044, roughness: 0.7, metalness: 0.4 });
+function addCatwalk(x, z, length = 6, rotY = 0, deckHeight = 3) {
+  const group = new THREE.Group();
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.1, length), railMatDress);
+  deck.position.y = deckHeight;
+  deck.castShadow = true;
+  deck.receiveShadow = true;
+  group.add(deck);
+  for (const side of [-0.65, 0.65]) {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.6, length), railMatDress);
+    rail.position.set(side, deckHeight + 0.35, 0);
+    group.add(rail);
+  }
+  for (let i = 0; i < 4; i++) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, deckHeight, 8), railMatDress);
+    leg.position.set(i < 2 ? -0.6 : 0.6, deckHeight / 2, -length / 2 + (i % 2) * length);
+    leg.castShadow = true;
+    group.add(leg);
+  }
+  group.position.set(x, 0, z);
+  group.rotation.y = rotY;
+  scene.add(group);
+  return group;
+}
+addCatwalk(7, 5, 7, Math.PI / 2);
+addCatwalk(-9, -8, 6, 0.3);
 
 const skylineMat = new THREE.MeshStandardMaterial({ color: 0x6f7d86, roughness: 1, fog: true });
 for (let i = 0; i < 14; i++) {
