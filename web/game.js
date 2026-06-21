@@ -41,6 +41,7 @@ const ammoEl = document.getElementById('ammo');
 const scoreEl = document.getElementById('score');
 const healthEl = document.getElementById('health');
 const weaponNameEl = document.getElementById('weapon-name');
+const gearNameEl = document.getElementById('gear-name');
 const crosshair = document.getElementById('crosshair');
 const cardboardBtn = document.getElementById('cardboard-btn');
 const damageFlash = document.getElementById('damage-flash');
@@ -151,19 +152,62 @@ dirLight.shadow.camera.bottom = -25;
 dirLight.shadow.bias = -0.001;
 scene.add(dirLight);
 
-// --- Humanoid enemies (PMC soldiers, no blood: white-flash + spark burst on hit) ---
+// --- Map dressing: crates, barriers, distant skyline for depth/realism ---
+const crateMat = new THREE.MeshStandardMaterial({ color: 0x7a5a36, roughness: 0.95, metalness: 0.02 });
+function addCrate(x, z, size = 1.1) {
+  const crate = new THREE.Mesh(new THREE.BoxGeometry(size, size, size), crateMat);
+  crate.position.set(x, size / 2, z);
+  crate.castShadow = true;
+  crate.receiveShadow = true;
+  scene.add(crate);
+  obstacles.push(crate);
+  return crate;
+}
+[[6, 4], [7.5, 5.5], [-10, 8], [4, -9], [-5, -11], [12, -3], [-14, 2]].forEach(([x, z]) => addCrate(x, z));
+
+const barrierMat = new THREE.MeshStandardMaterial({ color: 0x5e6b6f, roughness: 0.85, metalness: 0.1 });
+function addBarrier(x, z, w = 2.4, rotY = 0) {
+  const barrier = new THREE.Mesh(new THREE.BoxGeometry(w, 1.1, 0.3), barrierMat);
+  barrier.position.set(x, 0.55, z);
+  barrier.rotation.y = rotY;
+  barrier.castShadow = true;
+  barrier.receiveShadow = true;
+  scene.add(barrier);
+  obstacles.push(barrier);
+  return barrier;
+}
+addBarrier(-3, 6, 3, 0.3);
+addBarrier(9, -8, 3, -0.4);
+addBarrier(-12, -6, 3.5, 0.6);
+
+const skylineMat = new THREE.MeshStandardMaterial({ color: 0x6f7d86, roughness: 1, fog: true });
+for (let i = 0; i < 14; i++) {
+  const angle = (i / 14) * Math.PI * 2;
+  const dist = 36 + Math.random() * 6;
+  const h = 8 + Math.random() * 18;
+  const bld = new THREE.Mesh(new THREE.BoxGeometry(6 + Math.random() * 4, h, 6 + Math.random() * 4), skylineMat);
+  bld.position.set(Math.cos(angle) * dist, h / 2, Math.sin(angle) * dist);
+  scene.add(bld);
+}
+
+// --- Humanoid soldiers (PMC teams, no blood: white-flash + spark burst on hit) ---
 const enemyHitMeshes = [];
 const enemies = [];
-const camoColors = [0x4b5320, 0x3c4a3a, 0x5a5042, 0x44473e];
+const allies = [];
+const TEAM_PALETTES = {
+  enemy: { camo: [0x4b5320, 0x3c4a3a, 0x5a5042, 0x44473e], armband: 0xb33a3a },
+  ally: { camo: [0x35506b, 0x2d4a63, 0x3c5b78, 0x33495e], armband: 0x3a7fd9 },
+};
 const skinMat = new THREE.MeshStandardMaterial({ color: 0xc89a72, roughness: 0.8 });
 const visorMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.3, metalness: 0.4 });
 const vestMat = new THREE.MeshStandardMaterial({ color: 0x202020, roughness: 0.85 });
 const bootMat = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.9 });
 
-function buildEnemy() {
+function buildSoldier(team) {
+  const palette = TEAM_PALETTES[team];
   const group = new THREE.Group();
   const uniformMat = new THREE.MeshStandardMaterial({
-    color: camoColors[Math.floor(Math.random() * camoColors.length)],
+    color: palette.camo[Math.floor(Math.random() * palette.camo.length)],
     roughness: 0.85,
     metalness: 0.05,
   });
@@ -196,6 +240,12 @@ function buildEnemy() {
   armR.position.set(0.4, 1.15, 0);
   group.add(armR);
 
+  const armbandMat = new THREE.MeshStandardMaterial({ color: palette.armband, roughness: 0.6 });
+  const armband = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.08, 10), armbandMat);
+  armband.rotation.z = Math.PI / 2;
+  armband.position.set(0.4, 1.35, 0);
+  group.add(armband);
+
   const legGeo = new THREE.CapsuleGeometry(0.11, 0.7, 4, 6);
   const legL = new THREE.Mesh(legGeo, uniformMat.clone());
   legL.position.set(-0.15, 0.4, 0);
@@ -216,18 +266,23 @@ function buildEnemy() {
     if (child.isMesh) {
       child.castShadow = true;
       child.receiveShadow = true;
-      child.userData.enemyRoot = group;
-      enemyHitMeshes.push(child);
+      child.userData.soldierRoot = group;
+      if (team === 'enemy') enemyHitMeshes.push(child);
     }
   });
 
   group.userData = {
+    team,
     hp: 100,
     maxHp: 100,
     alive: true,
     fireDelay: 1.4 + Math.random() * 0.8,
     lastShot: -999,
     spawnPos: new THREE.Vector3(),
+    wanderTarget: new THREE.Vector3(),
+    wanderTimer: 0,
+    legPhase: Math.random() * Math.PI * 2,
+    legL, legR, armL, armR,
   };
 
   return group;
@@ -237,33 +292,69 @@ function placeEnemy(group) {
   const pos = new THREE.Vector3((Math.random() - 0.5) * 32, 0, (Math.random() - 0.5) * 32 - 4);
   group.position.copy(pos);
   group.userData.spawnPos.copy(pos);
+  group.userData.wanderTarget.copy(pos);
 }
 
 for (let i = 0; i < 5; i++) {
-  const enemy = buildEnemy();
+  const enemy = buildSoldier('enemy');
   placeEnemy(enemy);
   scene.add(enemy);
   enemies.push(enemy);
 }
 
-function damageEnemy(mesh, dmg) {
-  const root = mesh.userData.enemyRoot;
+const ALLY_OFFSETS = [
+  new THREE.Vector3(-1.6, 0, 1.2),
+  new THREE.Vector3(1.6, 0, 1.4),
+  new THREE.Vector3(0, 0, 2.2),
+];
+for (let i = 0; i < ALLY_OFFSETS.length; i++) {
+  const ally = buildSoldier('ally');
+  ally.position.set(rig.position.x + ALLY_OFFSETS[i].x, 0, rig.position.z + ALLY_OFFSETS[i].z);
+  ally.userData.lastShot = -999;
+  scene.add(ally);
+  allies.push(ally);
+}
+
+function animateWalkCycle(soldier, dt, moving) {
+  const ud = soldier.userData;
+  if (moving) {
+    ud.legPhase += dt * 6;
+    const swing = Math.sin(ud.legPhase) * 0.5;
+    ud.legL.rotation.x = swing;
+    ud.legR.rotation.x = -swing;
+    ud.armL.rotation.x = -swing;
+    ud.armR.rotation.x = swing;
+  } else {
+    ud.legL.rotation.x *= 0.8;
+    ud.legR.rotation.x *= 0.8;
+    ud.armL.rotation.x *= 0.8;
+    ud.armR.rotation.x *= 0.8;
+  }
+}
+
+function damageEnemyRoot(root, dmg) {
   if (!root || !root.userData.alive) return;
   root.userData.hp -= dmg;
-  const hitPoint = mesh.getWorldPosition(new THREE.Vector3());
-  spawnSparks(hitPoint);
+  spawnSparks(root.position.clone().add(new THREE.Vector3(0, 1.3, 0)));
   if (root.userData.hp <= 0) {
     root.userData.alive = false;
     root.visible = false;
-    score += 50;
-    updateHud();
+    if (root.userData.team === 'enemy') {
+      score += 50;
+      updateHud();
+    }
     setTimeout(() => {
-      placeEnemy(root);
+      if (root.userData.team === 'enemy') placeEnemy(root);
+      else root.position.copy(rig.position);
       root.userData.hp = root.userData.maxHp;
       root.userData.alive = true;
       root.visible = true;
     }, 3000);
   }
+}
+
+function damageEnemy(mesh, dmg) {
+  damageEnemyRoot(mesh.userData.soldierRoot, dmg);
 }
 
 const enemyRaycaster = new THREE.Raycaster();
@@ -278,45 +369,156 @@ function hasLineOfSight(fromPos, toPos) {
   return hits.length === 0;
 }
 
+// Resolves whether a shot fired from muzzlePos toward targetPos (with accuracy
+// spread) actually connects with a hit-radius around targetPos.
+function resolveHit(muzzlePos, targetPos, dist, spreadScale) {
+  const spread = Math.min(0.35, dist * spreadScale);
+  const aimDir = new THREE.Vector3().subVectors(targetPos, muzzlePos).normalize();
+  aimDir.x += (Math.random() - 0.5) * spread;
+  aimDir.y += (Math.random() - 0.5) * spread;
+  aimDir.normalize();
+  const hitRadius = 0.4;
+  const closestApproach = new THREE.Line3(muzzlePos, muzzlePos.clone().addScaledVector(aimDir, 30))
+    .closestPointToPoint(targetPos, true, new THREE.Vector3())
+    .distanceTo(targetPos);
+  return closestApproach < hitRadius;
+}
+
 function updateEnemies(dt) {
   const playerPos = rig.position;
   const playerEye = playerPos.clone().setY(1.6);
   const now = clock.elapsedTime;
   for (const enemy of enemies) {
     if (!enemy.userData.alive) continue;
-    const toPlayer = new THREE.Vector3().subVectors(playerPos, enemy.position);
-    const dist = toPlayer.length();
+    const ud = enemy.userData;
+    if (ud.stunnedUntil && now < ud.stunnedUntil) continue;
 
-    const angle = Math.atan2(toPlayer.x, toPlayer.z);
-    enemy.rotation.y = angle;
-
-    const muzzlePos = enemy.position.clone().add(new THREE.Vector3(0, 1.5, 0.3));
-    const inRange = dist < 20 && dist > 1.2;
-    const offCooldown = now - enemy.userData.lastShot > enemy.userData.fireDelay;
-
-    if (inRange && offCooldown && hasLineOfSight(muzzlePos, playerEye)) {
-      enemy.userData.lastShot = now;
-      spawnSparks(muzzlePos);
-      playMuzzleSound();
-
-      // Accuracy cone widens with distance, like real bullet spread.
-      const spread = Math.min(0.35, dist * 0.02);
-      const aimDir = new THREE.Vector3().subVectors(playerEye, muzzlePos).normalize();
-      aimDir.x += (Math.random() - 0.5) * spread;
-      aimDir.y += (Math.random() - 0.5) * spread;
-      aimDir.normalize();
-
-      enemyRaycaster.set(muzzlePos, aimDir);
-      enemyRaycaster.far = 30;
-      const playerHitRadius = 0.4;
-      const closestApproach = new THREE.Line3(muzzlePos, muzzlePos.clone().addScaledVector(aimDir, 30))
-        .closestPointToPoint(playerEye, true, new THREE.Vector3())
-        .distanceTo(playerEye);
-      if (closestApproach < playerHitRadius) {
-        damagePlayer(6 + Math.random() * 6);
+    // Pick the nearest visible target: the player or a living ally.
+    let target = null, targetDist = Infinity, targetIsPlayer = false, targetAlly = null;
+    const distToPlayer = enemy.position.distanceTo(playerPos);
+    if (distToPlayer < 20 && hasLineOfSight(enemy.position.clone().add(new THREE.Vector3(0, 1.5, 0)), playerEye)) {
+      target = playerEye; targetDist = distToPlayer; targetIsPlayer = true;
+    }
+    for (const ally of allies) {
+      if (!ally.userData.alive) continue;
+      const d = enemy.position.distanceTo(ally.position);
+      if (d < targetDist && d < 16 && hasLineOfSight(enemy.position.clone().add(new THREE.Vector3(0, 1.5, 0)), ally.position.clone().add(new THREE.Vector3(0, 1.4, 0)))) {
+        target = ally.position.clone().add(new THREE.Vector3(0, 1.4, 0));
+        targetDist = d;
+        targetIsPlayer = false;
+        targetAlly = ally;
       }
     }
+
+    let moving = false;
+    if (target) {
+      const angle = Math.atan2(target.x - enemy.position.x, target.z - enemy.position.z);
+      enemy.rotation.y = angle;
+
+      // Hold ground and strafe sideways a little for more lifelike combat movement.
+      ud.wanderTimer -= dt;
+      if (ud.wanderTimer <= 0) {
+        ud.wanderTimer = 1 + Math.random() * 1.5;
+        const strafe = new THREE.Vector3(Math.cos(angle), 0, -Math.sin(angle)).multiplyScalar((Math.random() - 0.5) * 3);
+        ud.wanderTarget.copy(enemy.position).add(strafe);
+      }
+      const toStrafe = new THREE.Vector3().subVectors(ud.wanderTarget, enemy.position);
+      if (toStrafe.length() > 0.2) {
+        toStrafe.normalize();
+        enemy.position.addScaledVector(toStrafe, 1.1 * dt);
+        moving = true;
+      }
+
+      const muzzlePos = enemy.position.clone().add(new THREE.Vector3(0, 1.5, 0.3));
+      const offCooldown = now - ud.lastShot > ud.fireDelay;
+      const inRange = targetDist < 20 && targetDist > 1.2;
+      if (inRange && offCooldown) {
+        ud.lastShot = now;
+        spawnSparks(muzzlePos);
+        playMuzzleSound();
+        if (resolveHit(muzzlePos, target, targetDist, 0.02)) {
+          if (targetIsPlayer) damagePlayer(6 + Math.random() * 6);
+          else if (targetAlly) damageEnemyRoot(targetAlly, 8 + Math.random() * 8);
+        }
+      }
+    } else {
+      // Idle patrol near spawn point.
+      ud.wanderTimer -= dt;
+      if (ud.wanderTimer <= 0) {
+        ud.wanderTimer = 3 + Math.random() * 3;
+        ud.wanderTarget.copy(ud.spawnPos).add(new THREE.Vector3((Math.random() - 0.5) * 5, 0, (Math.random() - 0.5) * 5));
+      }
+      const toTarget = new THREE.Vector3().subVectors(ud.wanderTarget, enemy.position);
+      if (toTarget.length() > 0.3) {
+        toTarget.normalize();
+        enemy.rotation.y = Math.atan2(toTarget.x, toTarget.z);
+        enemy.position.addScaledVector(toTarget, 0.8 * dt);
+        moving = true;
+      }
+    }
+
+    enemy.position.x = Math.max(-19, Math.min(19, enemy.position.x));
+    enemy.position.z = Math.max(-19, Math.min(19, enemy.position.z));
+    animateWalkCycle(enemy, dt, moving);
   }
+}
+
+function updateAllies(dt) {
+  const playerPos = rig.position;
+  const playerFacing = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+  playerFacing.y = 0; playerFacing.normalize();
+  const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+  right.y = 0; right.normalize();
+  const now = clock.elapsedTime;
+
+  allies.forEach((ally, i) => {
+    if (!ally.userData.alive) return;
+    const ud = ally.userData;
+    const offset = ALLY_OFFSETS[i];
+    const formationPos = playerPos.clone()
+      .addScaledVector(playerFacing, -offset.z)
+      .addScaledVector(right, offset.x);
+    formationPos.y = 0;
+
+    const toFormation = new THREE.Vector3().subVectors(formationPos, ally.position);
+    let moving = false;
+    if (toFormation.length() > 0.6) {
+      const dir = toFormation.clone().normalize();
+      ally.position.addScaledVector(dir, Math.min(toFormation.length(), 4.5 * dt));
+      ally.rotation.y = Math.atan2(dir.x, dir.z);
+      moving = true;
+    }
+
+    // Find nearest living enemy with line of sight and fire at it.
+    let nearest = null, nearestDist = Infinity;
+    for (const enemy of enemies) {
+      if (!enemy.userData.alive) continue;
+      const d = ally.position.distanceTo(enemy.position);
+      if (d < nearestDist && d < 18) {
+        nearest = enemy; nearestDist = d;
+      }
+    }
+    if (nearest) {
+      const muzzlePos = ally.position.clone().add(new THREE.Vector3(0, 1.5, 0.3));
+      const targetPos = nearest.position.clone().add(new THREE.Vector3(0, 1.3, 0));
+      if (hasLineOfSight(muzzlePos, targetPos)) {
+        if (!moving) ally.rotation.y = Math.atan2(targetPos.x - ally.position.x, targetPos.z - ally.position.z);
+        const offCooldown = now - ud.lastShot > ud.fireDelay;
+        if (offCooldown) {
+          ud.lastShot = now;
+          spawnSparks(muzzlePos);
+          playMuzzleSound();
+          if (resolveHit(muzzlePos, targetPos, nearestDist, 0.02)) {
+            damageEnemyRoot(nearest, 10 + Math.random() * 8);
+          }
+        }
+      }
+    }
+
+    ally.position.x = Math.max(-19, Math.min(19, ally.position.x));
+    ally.position.z = Math.max(-19, Math.min(19, ally.position.z));
+    animateWalkCycle(ally, dt, moving);
+  });
 }
 
 // --- Player health ---
@@ -333,7 +535,7 @@ function damagePlayer(amount) {
   if (playerHealth <= 0) {
     playerAlive = false;
     setTimeout(() => {
-      playerHealth = 100;
+      playerHealth = playerMaxHealth;
       playerAlive = true;
       rig.position.copy(playerSpawn);
       updateHud();
@@ -377,19 +579,34 @@ WEAPONS.forEach((w) => (w.ammo = w.magSize));
 
 // --- Gear (from the Tactical Breach design doc) ---
 const GEAR = [
-  { name: 'Smart Smoke', effect: 'Smoke + blocks thermal 8s' },
-  { name: 'Breach Charge', effect: 'Destroys a wall/door segment' },
-  { name: 'Recon Drone', effect: 'Reveals enemies in radius 5s' },
-  { name: 'EMP Grenade', effect: 'Disables gadgets/drones, no dmg' },
-  { name: 'Flash-Stun', effect: 'Blinds + slows, no damage' },
-  { name: 'Armor (Light)', effect: '+50 effective HP' },
-  { name: 'Armor (Heavy)', effect: '+100 HP, -10% mobility' },
-  { name: 'Defuse Kit', effect: 'Halves defuse time' },
+  { name: 'Smart Smoke', effect: 'Smoke + blocks thermal 8s', active: true, cooldown: 10 },
+  { name: 'Breach Charge', effect: 'Destroys a wall/door segment', active: true, cooldown: 12 },
+  { name: 'Recon Drone', effect: 'Reveals enemies in radius 5s', active: true, cooldown: 12 },
+  { name: 'EMP Grenade', effect: 'Disables gadgets/drones, no dmg', active: true, cooldown: 10 },
+  { name: 'Flash-Stun', effect: 'Blinds + slows, no damage', active: true, cooldown: 10 },
+  { name: 'Armor (Light)', effect: '+50 effective HP', active: false, hpBonus: 50 },
+  { name: 'Armor (Heavy)', effect: '+100 HP, -10% mobility', active: false, hpBonus: 100, speedMult: 0.9 },
+  { name: 'Defuse Kit', effect: 'Halves defuse time', active: false },
 ];
 
 let weaponIndex = 0;
 function currentWeapon() {
   return WEAPONS[weaponIndex];
+}
+
+// --- Equipped gear (set on the ready screen) ---
+let equippedGear = [];
+let gearIndex = -1;
+const gearCooldowns = {};
+let playerSpeedMult = 1;
+let playerMaxHealth = 100;
+function activeGearList() {
+  return equippedGear.filter((i) => GEAR[i].active);
+}
+function currentGear() {
+  const list = activeGearList();
+  if (gearIndex < 0 || !list.length) return null;
+  return GEAR[list[gearIndex % list.length]];
 }
 
 // --- First-person weapon view-models ---
@@ -578,6 +795,16 @@ renderLoadoutScreen();
 
 readyBtn.addEventListener('click', () => {
   weaponIndex = selectedLoadoutIndex;
+  equippedGear = Array.from(selectedGear);
+  gearIndex = activeGearList().length ? 0 : -1;
+  playerMaxHealth = 100;
+  playerSpeedMult = 1;
+  equippedGear.forEach((i) => {
+    const g = GEAR[i];
+    if (g.hpBonus) playerMaxHealth += g.hpBonus;
+    if (g.speedMult) playerSpeedMult *= g.speedMult;
+  });
+  playerHealth = playerMaxHealth;
   updateHud();
   updateViewModel();
   loadoutScreen.style.display = 'none';
@@ -594,6 +821,14 @@ function updateHud() {
   ammoEl.textContent = reloading ? 'Reloading...' : `Ammo: ${w.ammo}/${w.magSize}`;
   scoreEl.textContent = `Score: ${score}`;
   healthEl.textContent = `HP: ${Math.ceil(playerHealth)}`;
+  const g = currentGear();
+  if (!g) {
+    gearNameEl.textContent = 'Gear: None';
+  } else {
+    const cd = gearCooldowns[g.name] || 0;
+    const remaining = Math.max(0, cd - clock.elapsedTime);
+    gearNameEl.textContent = `Gear: ${g.name}${remaining > 0 ? ` (${remaining.toFixed(1)}s)` : ''}`;
+  }
 }
 updateHud();
 
@@ -602,6 +837,105 @@ function switchWeapon() {
   weaponIndex = (weaponIndex + 1) % WEAPONS.length;
   updateHud();
   updateViewModel();
+}
+
+function cycleGear() {
+  const list = activeGearList();
+  if (!list.length) return;
+  gearIndex = (gearIndex + 1) % list.length;
+  updateHud();
+}
+
+const smokeGroup = new THREE.Group();
+scene.add(smokeGroup);
+function spawnSmoke(position) {
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(3, 12, 12),
+    new THREE.MeshBasicMaterial({ color: 0xdddddd, transparent: true, opacity: 0.55, depthWrite: false })
+  );
+  mesh.position.copy(position);
+  smokeGroup.add(mesh);
+  obstacles.push(mesh);
+  setTimeout(() => {
+    smokeGroup.remove(mesh);
+    obstacles.splice(obstacles.indexOf(mesh), 1);
+    mesh.geometry.dispose();
+    mesh.material.dispose();
+  }, 8000);
+}
+
+function breachNearestWall() {
+  const origin = camera.getWorldPosition(new THREE.Vector3());
+  const dir = new THREE.Vector3(0, 0, -1).transformDirection(camera.matrixWorld).normalize();
+  raycaster.set(origin, dir);
+  const hits = raycaster.intersectObjects(obstacles, false);
+  if (hits.length && hits[0].distance < 5) {
+    const obj = hits[0].object;
+    scene.remove(obj);
+    const idx = obstacles.indexOf(obj);
+    if (idx >= 0) obstacles.splice(idx, 1);
+  }
+}
+
+const revealMarkers = [];
+function recon() {
+  enemies.forEach((enemy) => {
+    if (!enemy.userData.alive) return;
+    const marker = new THREE.Mesh(
+      new THREE.ConeGeometry(0.15, 0.3, 8),
+      new THREE.MeshBasicMaterial({ color: 0xff4444 })
+    );
+    marker.rotation.x = Math.PI;
+    marker.position.set(0, 2.1, 0);
+    enemy.add(marker);
+    revealMarkers.push(marker);
+    setTimeout(() => {
+      enemy.remove(marker);
+      marker.geometry.dispose();
+      marker.material.dispose();
+      const idx = revealMarkers.indexOf(marker);
+      if (idx >= 0) revealMarkers.splice(idx, 1);
+    }, 5000);
+  });
+}
+
+function stunNearbyEnemies(radius = 12, duration = 4) {
+  const playerPos = rig.position;
+  const until = clock.elapsedTime + duration;
+  enemies.forEach((enemy) => {
+    if (!enemy.userData.alive) return;
+    if (enemy.position.distanceTo(playerPos) <= radius) {
+      enemy.userData.stunnedUntil = until;
+    }
+  });
+}
+
+function useGear() {
+  const g = currentGear();
+  if (!g || !g.active) return;
+  const now = clock.elapsedTime;
+  const cdUntil = gearCooldowns[g.name] || 0;
+  if (now < cdUntil) return;
+  gearCooldowns[g.name] = now + (g.cooldown || 10);
+
+  switch (g.name) {
+    case 'Smart Smoke':
+      spawnSmoke(camera.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0, -1).transformDirection(camera.matrixWorld).multiplyScalar(3)));
+      break;
+    case 'Breach Charge':
+      breachNearestWall();
+      break;
+    case 'Recon Drone':
+      recon();
+      break;
+    case 'EMP Grenade':
+      stunNearbyEnemies(14, 5);
+      break;
+    case 'Flash-Stun':
+      stunNearbyEnemies(10, 3);
+      break;
+  }
+  updateHud();
 }
 
 function fireFrom(originMatrixWorld) {
@@ -696,6 +1030,8 @@ window.addEventListener('keydown', (e) => {
   if (k === ' ') fireFrom(camera.matrixWorld);
   if (k === 'r') reload();
   if (k === 'q' || k === 'v') switchWeapon();
+  if (k === 'g') cycleGear();
+  if (k === 'f') useGear();
   if (['1', '2', '3', '4'].includes(k)) {
     weaponIndex = Number(k) - 1;
     updateHud();
@@ -774,6 +1110,23 @@ document.getElementById('switch-btn').addEventListener('touchstart', (e) => {
   e.preventDefault();
   switchWeapon();
 });
+const gearBtn = document.getElementById('gear-btn');
+let gearHoldTimer = null;
+gearBtn.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  gearHoldTimer = setTimeout(() => {
+    gearHoldTimer = null;
+    useGear();
+  }, 400);
+});
+gearBtn.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  if (gearHoldTimer) {
+    clearTimeout(gearHoldTimer);
+    gearHoldTimer = null;
+    cycleGear();
+  }
+});
 const adsBtn = document.getElementById('ads-btn');
 adsBtn.addEventListener('touchstart', (e) => { e.preventDefault(); aiming = true; });
 adsBtn.addEventListener('touchend', (e) => { e.preventDefault(); aiming = false; });
@@ -841,7 +1194,7 @@ function update(dt) {
       forward.y = 0; forward.normalize();
       const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
       right.y = 0; right.normalize();
-      const speed = (aiming ? 2.2 : 4.5) * dt;
+      const speed = (aiming ? 2.2 : 4.5) * dt * playerSpeedMult;
       rig.position.addScaledVector(forward, -dy * speed);
       rig.position.addScaledVector(right, dx * speed);
 
@@ -879,6 +1232,7 @@ function update(dt) {
   }
 
   updateEnemies(dt);
+  updateAllies(dt);
 
   for (let i = sparkGroup.children.length - 1; i >= 0; i--) {
     const points = sparkGroup.children[i];
