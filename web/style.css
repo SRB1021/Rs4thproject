@@ -222,6 +222,17 @@ body.cardboard-mode #hud {
   font-weight: bold;
 }
 
+.loadout-category .caret {
+  color: #e6e6e6;
+  font-weight: normal;
+  display: inline-block;
+  transition: transform 0.15s ease-out;
+}
+
+.loadout-category[aria-expanded="true"] .caret {
+  transform: rotate(180deg);
+}
+
 .loadout-options {
   display: none;
   flex-wrap: wrap;

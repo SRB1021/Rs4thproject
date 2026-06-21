@@ -485,12 +485,16 @@ let selectedLoadoutIndex = 0;
 const selectedGear = new Set();
 
 weaponCategoryBtn.addEventListener('click', () => {
-  loadoutList.classList.toggle('expanded');
+  const expanded = loadoutList.classList.toggle('expanded');
+  weaponCategoryBtn.setAttribute('aria-expanded', String(expanded));
   gearList.classList.remove('expanded');
+  gearCategoryBtn.setAttribute('aria-expanded', 'false');
 });
 gearCategoryBtn.addEventListener('click', () => {
-  gearList.classList.toggle('expanded');
+  const expanded = gearList.classList.toggle('expanded');
+  gearCategoryBtn.setAttribute('aria-expanded', String(expanded));
   loadoutList.classList.remove('expanded');
+  weaponCategoryBtn.setAttribute('aria-expanded', 'false');
 });
 
 function renderLoadoutScreen() {
@@ -514,6 +518,7 @@ function renderLoadoutScreen() {
       selectedLoadoutIndex = i;
       renderLoadoutScreen();
       loadoutList.classList.add('expanded');
+      weaponCategoryBtn.setAttribute('aria-expanded', 'true');
     });
     loadoutList.appendChild(card);
   });
@@ -531,6 +536,7 @@ function renderLoadoutScreen() {
       else selectedGear.add(i);
       renderLoadoutScreen();
       gearList.classList.add('expanded');
+      gearCategoryBtn.setAttribute('aria-expanded', 'true');
     });
     gearList.appendChild(card);
   });
