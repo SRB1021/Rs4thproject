@@ -1,6 +1,7 @@
-[gd_scene load_steps=10 format=3 uid="uid://b1n4mwq8x7v2a"]
+[gd_scene load_steps=13 format=3 uid="uid://b1n4mwq8x7v2a"]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/enemy.gd" id="2"]
 
 [sub_resource type="Environment" id="Environment_main"]
 background_mode = 2
@@ -30,6 +31,17 @@ size = Vector3(1.5, 1.5, 1.5)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_crate"]
 size = Vector3(1.5, 1.5, 1.5)
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_enemy"]
+radius = 0.4
+height = 1.8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_enemy"]
+albedo_color = Color(0.7, 0.2, 0.2, 1)
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_enemy"]
+radius = 0.4
+height = 1.8
 
 [node name="Main" type="Node3D"]
 
@@ -73,3 +85,20 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
 
 [node name="Camera3D" type="Camera3D" parent="Player/Head"]
 current = true
+
+[node name="Enemy" type="CharacterBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 1, -10)
+script = ExtResource("2")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Enemy"]
+shape = SubResource("CapsuleShape3D_enemy")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Enemy"]
+mesh = SubResource("CapsuleMesh_enemy")
+surface_material_override/0 = SubResource("StandardMaterial3D_enemy")
+
+[node name="Eyes" type="Node3D" parent="Enemy"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+
+[node name="RayCast3D" type="RayCast3D" parent="Enemy/Eyes"]
+target_position = Vector3(0, 0, -18)
