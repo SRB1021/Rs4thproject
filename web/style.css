@@ -77,3 +77,29 @@ html, body {
 @media (min-width: 900px) {
   #touch-controls { display: none; }
 }
+
+#vr-button-container {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+#vr-button-container button {
+  background: rgba(0,0,0,0.6) !important;
+  border: 1px solid rgba(255,255,255,0.4) !important;
+  color: #fff !important;
+}
+
+#crosshair {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.8);
+  pointer-events: none;
+}

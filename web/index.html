@@ -8,6 +8,7 @@
 </head>
 <body>
 <canvas id="game"></canvas>
+<div id="crosshair"></div>
 
 <div id="hud">
   <div id="ammo">Ammo: 30/30</div>
@@ -20,6 +21,16 @@
   <div id="stick-look" class="stick"><div class="stick-knob"></div></div>
 </div>
 
-<script src="game.js"></script>
+<div id="vr-button-container"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module" src="game.js"></script>
 </body>
 </html>
