@@ -6,6 +6,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
 // Minimal device-orientation look control (the old three.js addon of this
 // name was removed from the library; this replaces it for cardboard mode).
@@ -119,6 +120,60 @@ ssaoPass.minDistance = 0.0008;
 ssaoPass.maxDistance = 0.06;
 composer.addPass(ssaoPass);
 composer.addPass(bloomPass);
+
+// Camera-lens look: vignette darkens the edges, chromatic aberration
+// fringes high-contrast edges, and grain breaks up flat CG gradients —
+// the cheap tricks that sell "shot with a camera" rather than "rendered".
+const filmGradePass = new ShaderPass({
+  uniforms: {
+    tDiffuse: { value: null },
+    time: { value: 0 },
+    vignetteStrength: { value: 0.45 },
+    aberration: { value: 0.0022 },
+    grainStrength: { value: 0.035 },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float time;
+    uniform float vignetteStrength;
+    uniform float aberration;
+    uniform float grainStrength;
+    varying vec2 vUv;
+
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(41.3, 289.1))) * 43758.5453);
+    }
+
+    void main() {
+      vec2 centered = vUv - 0.5;
+      vec2 dir = normalize(centered + 1e-6);
+      float dist = length(centered);
+
+      vec2 rOff = dir * aberration * dist;
+      vec2 bOff = -dir * aberration * dist;
+      float r = texture2D(tDiffuse, vUv + rOff).r;
+      float g = texture2D(tDiffuse, vUv).g;
+      float b = texture2D(tDiffuse, vUv + bOff).b;
+      vec3 color = vec3(r, g, b);
+
+      float vignette = smoothstep(0.85, 0.15, dist * (1.0 + vignetteStrength));
+      color *= mix(1.0 - vignetteStrength, 1.0, vignette);
+
+      float grain = (hash(vUv * vec2(1920.0, 1080.0) + time) - 0.5) * grainStrength;
+      color += grain;
+
+      gl_FragColor = vec4(color, 1.0);
+    }
+  `,
+});
+composer.addPass(filmGradePass);
 composer.addPass(new OutputPass());
 
 window.addEventListener('resize', () => {
@@ -1570,6 +1625,7 @@ renderer.xr.addEventListener('sessionend', () => {
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05);
   update(dt);
+  filmGradePass.uniforms.time.value = clock.getElapsedTime();
   if (!renderer.xr.isPresenting && cardboardMode) {
     stereoEffect.render(scene, camera);
   } else if (renderer.xr.isPresenting) {
