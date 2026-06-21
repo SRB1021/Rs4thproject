@@ -129,8 +129,8 @@ html, body {
   pointer-events: auto;
 }
 
-@media (min-width: 900px) {
-  #touch-controls { display: none; }
+body:not(.touch-device) #touch-controls {
+  display: none;
 }
 
 #vr-button-container {
@@ -211,8 +211,16 @@ body.cardboard-mode #hud {
 }
 
 .loadout-card.selected {
-  border-color: #3498db;
-  background: rgba(52,152,219,0.18);
+  border-color: #f1c40f;
+  background: rgba(241,196,15,0.18);
+  box-shadow: 0 0 0 2px rgba(241,196,15,0.4);
+}
+
+#loadout-screen h2 {
+  margin: 18px 0 0;
+  font-size: 16px;
+  letter-spacing: 1px;
+  opacity: 0.85;
 }
 
 .loadout-card h3 {

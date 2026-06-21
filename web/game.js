@@ -3,6 +3,10 @@ import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { StereoEffect } from 'three/addons/effects/StereoEffect.js';
 import { DeviceOrientationControls } from 'three/addons/controls/DeviceOrientationControls.js';
 
+if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+  document.body.classList.add('touch-device');
+}
+
 const canvas = document.getElementById('game');
 const ammoEl = document.getElementById('ammo');
 const scoreEl = document.getElementById('score');
@@ -301,6 +305,18 @@ const WEAPONS = [
 ];
 WEAPONS.forEach((w) => (w.ammo = w.magSize));
 
+// --- Gear (from the Tactical Breach design doc) ---
+const GEAR = [
+  { name: 'Smart Smoke', effect: 'Smoke + blocks thermal 8s' },
+  { name: 'Breach Charge', effect: 'Destroys a wall/door segment' },
+  { name: 'Recon Drone', effect: 'Reveals enemies in radius 5s' },
+  { name: 'EMP Grenade', effect: 'Disables gadgets/drones, no dmg' },
+  { name: 'Flash-Stun', effect: 'Blinds + slows, no damage' },
+  { name: 'Armor (Light)', effect: '+50 effective HP' },
+  { name: 'Armor (Heavy)', effect: '+100 HP, -10% mobility' },
+  { name: 'Defuse Kit', effect: 'Halves defuse time' },
+];
+
 // --- First-person weapon view-models ---
 const viewModelRig = new THREE.Group();
 viewModelRig.position.set(0.22, -0.2, -0.4);
@@ -418,8 +434,10 @@ let gameReady = false;
 // --- Loadout / ready screen ---
 const loadoutScreen = document.getElementById('loadout-screen');
 const loadoutList = document.getElementById('loadout-list');
+const gearList = document.getElementById('gear-list');
 const readyBtn = document.getElementById('ready-btn');
 let selectedLoadoutIndex = 0;
+const selectedGear = new Set();
 
 function renderLoadoutScreen() {
   loadoutList.innerHTML = '';
@@ -439,6 +457,22 @@ function renderLoadoutScreen() {
     });
     loadoutList.appendChild(card);
   });
+
+  gearList.innerHTML = '';
+  GEAR.forEach((g, i) => {
+    const card = document.createElement('div');
+    card.className = 'loadout-card' + (selectedGear.has(i) ? ' selected' : '');
+    card.innerHTML = `
+      <h3>${g.name}</h3>
+      <div>${g.effect}</div>
+    `;
+    card.addEventListener('click', () => {
+      if (selectedGear.has(i)) selectedGear.delete(i);
+      else selectedGear.add(i);
+      renderLoadoutScreen();
+    });
+    gearList.appendChild(card);
+  });
 }
 renderLoadoutScreen();
 
@@ -449,7 +483,9 @@ readyBtn.addEventListener('click', () => {
   loadoutScreen.style.display = 'none';
   document.body.classList.remove('game-hidden');
   gameReady = true;
-  if (!renderer.xr.isPresenting) canvas.requestPointerLock();
+  if (!renderer.xr.isPresenting && canvas.requestPointerLock) {
+    canvas.requestPointerLock();
+  }
 });
 
 function currentWeapon() {
