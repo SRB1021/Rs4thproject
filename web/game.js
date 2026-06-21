@@ -15,6 +15,9 @@ const damageFlash = document.getElementById('damage-flash');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.4;
 renderer.xr.enabled = true;
 document.getElementById('vr-button-container').appendChild(VRButton.createButton(renderer));
 
@@ -44,8 +47,8 @@ cardboardBtn.addEventListener('click', async () => {
 });
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x2c333a);
-scene.fog = new THREE.Fog(0x2c333a, 8, 40);
+scene.background = new THREE.Color(0x8fb8d8);
+scene.fog = new THREE.Fog(0x8fb8d8, 25, 70);
 
 const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 100);
 
@@ -65,12 +68,12 @@ window.addEventListener('resize', () => {
 // --- Room (Refinery-inspired blockout: floor, walls, pipe cover) ---
 const floor = new THREE.Mesh(
   new THREE.PlaneGeometry(40, 40),
-  new THREE.MeshStandardMaterial({ color: 0x3a4148 })
+  new THREE.MeshStandardMaterial({ color: 0x7a8a93 })
 );
 floor.rotation.x = -Math.PI / 2;
 scene.add(floor);
 
-const wallMat = new THREE.MeshStandardMaterial({ color: 0x4a535c });
+const wallMat = new THREE.MeshStandardMaterial({ color: 0x9aa7af });
 function addWall(x, z, w, d, h = 4) {
   const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
   wall.position.set(x, h / 2, z);
@@ -82,16 +85,18 @@ addWall(0, 20, 40, 1);
 addWall(-20, 0, 1, 40);
 addWall(20, 0, 1, 40);
 
-const pipeMat = new THREE.MeshStandardMaterial({ color: 0x5d6b73 });
+const pipeMat = new THREE.MeshStandardMaterial({ color: 0x8d9aa1 });
 for (let i = 0; i < 6; i++) {
   const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 3, 12), pipeMat);
   pipe.position.set(-8 + i * 3, 1.5, -2 + (i % 2) * 2);
   scene.add(pipe);
 }
 
-const hemi = new THREE.HemisphereLight(0xffffff, 0x404040, 1.2);
+const hemi = new THREE.HemisphereLight(0xffffff, 0x9aa7af, 2.2);
 scene.add(hemi);
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+const ambient = new THREE.AmbientLight(0xffffff, 0.9);
+scene.add(ambient);
+const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
 dirLight.position.set(10, 15, 5);
 scene.add(dirLight);
 
