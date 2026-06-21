@@ -80,16 +80,18 @@ function addWall(x, z, w, d, h = 4) {
   scene.add(wall);
   return wall;
 }
-addWall(0, -20, 40, 1);
-addWall(0, 20, 40, 1);
-addWall(-20, 0, 1, 40);
-addWall(20, 0, 1, 40);
+const obstacles = [];
+obstacles.push(addWall(0, -20, 40, 1));
+obstacles.push(addWall(0, 20, 40, 1));
+obstacles.push(addWall(-20, 0, 1, 40));
+obstacles.push(addWall(20, 0, 1, 40));
 
 const pipeMat = new THREE.MeshStandardMaterial({ color: 0x8d9aa1 });
 for (let i = 0; i < 6; i++) {
   const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 3, 12), pipeMat);
   pipe.position.set(-8 + i * 3, 1.5, -2 + (i % 2) * 2);
   scene.add(pipe);
+  obstacles.push(pipe);
 }
 
 const hemi = new THREE.HemisphereLight(0xffffff, 0x9aa7af, 2.2);
@@ -190,8 +192,21 @@ function damageEnemy(mesh, dmg) {
   }
 }
 
+const enemyRaycaster = new THREE.Raycaster();
+
+function hasLineOfSight(fromPos, toPos) {
+  const dir = new THREE.Vector3().subVectors(toPos, fromPos);
+  const dist = dir.length();
+  dir.normalize();
+  enemyRaycaster.set(fromPos, dir);
+  enemyRaycaster.far = dist;
+  const hits = enemyRaycaster.intersectObjects(obstacles, false);
+  return hits.length === 0;
+}
+
 function updateEnemies(dt) {
   const playerPos = rig.position;
+  const playerEye = playerPos.clone().setY(1.6);
   const now = clock.elapsedTime;
   for (const enemy of enemies) {
     if (!enemy.userData.alive) continue;
@@ -201,13 +216,29 @@ function updateEnemies(dt) {
     const angle = Math.atan2(toPlayer.x, toPlayer.z);
     enemy.rotation.y = angle;
 
-    if (dist < 18 && dist > 1.2 && now - enemy.userData.lastShot > enemy.userData.fireDelay) {
-      enemy.userData.lastShot = now;
-      const muzzlePos = enemy.position.clone().add(new THREE.Vector3(0, 1.6, 0));
-      spawnSparks(muzzlePos);
+    const muzzlePos = enemy.position.clone().add(new THREE.Vector3(0, 1.5, 0.3));
+    const inRange = dist < 20 && dist > 1.2;
+    const offCooldown = now - enemy.userData.lastShot > enemy.userData.fireDelay;
 
-      const hitChance = Math.max(0.15, 0.85 - dist * 0.03);
-      if (Math.random() < hitChance) {
+    if (inRange && offCooldown && hasLineOfSight(muzzlePos, playerEye)) {
+      enemy.userData.lastShot = now;
+      spawnSparks(muzzlePos);
+      playMuzzleSound();
+
+      // Accuracy cone widens with distance, like real bullet spread.
+      const spread = Math.min(0.35, dist * 0.02);
+      const aimDir = new THREE.Vector3().subVectors(playerEye, muzzlePos).normalize();
+      aimDir.x += (Math.random() - 0.5) * spread;
+      aimDir.y += (Math.random() - 0.5) * spread;
+      aimDir.normalize();
+
+      enemyRaycaster.set(muzzlePos, aimDir);
+      enemyRaycaster.far = 30;
+      const playerHitRadius = 0.4;
+      const closestApproach = new THREE.Line3(muzzlePos, muzzlePos.clone().addScaledVector(aimDir, 30))
+        .closestPointToPoint(playerEye, true, new THREE.Vector3())
+        .distanceTo(playerEye);
+      if (closestApproach < playerHitRadius) {
         damagePlayer(6 + Math.random() * 6);
       }
     }
@@ -263,18 +294,163 @@ function spawnSparks(position) {
 
 // --- Weapons (stats from the Tactical Breach design doc) ---
 const WEAPONS = [
-  { name: 'MP-Sidearm', damage: 34, fireDelay: 0.18, magSize: 12, reloadTime: 1.0 },
-  { name: 'PDX-9 SMG', damage: 25, fireDelay: 0.09, magSize: 30, reloadTime: 1.4 },
-  { name: 'AR-15K', damage: 40, fireDelay: 0.11, magSize: 30, reloadTime: 1.8 },
-  { name: 'SR-50 Sniper', damage: 100, fireDelay: 0.9, magSize: 5, reloadTime: 2.2 },
+  { name: 'MP-Sidearm', damage: 34, fireDelay: 0.18, magSize: 12, reloadTime: 1.0, recoil: 0.01, aimFov: 55, barrelLen: 0.35 },
+  { name: 'PDX-9 SMG', damage: 25, fireDelay: 0.09, magSize: 30, reloadTime: 1.4, recoil: 0.012, aimFov: 50, barrelLen: 0.5 },
+  { name: 'AR-15K', damage: 40, fireDelay: 0.11, magSize: 30, reloadTime: 1.8, recoil: 0.018, aimFov: 45, barrelLen: 0.75 },
+  { name: 'SR-50 Sniper', damage: 100, fireDelay: 0.9, magSize: 5, reloadTime: 2.2, recoil: 0.05, aimFov: 20, barrelLen: 1.0 },
 ];
 WEAPONS.forEach((w) => (w.ammo = w.magSize));
+
+// --- First-person weapon view-models ---
+const viewModelRig = new THREE.Group();
+viewModelRig.position.set(0.22, -0.2, -0.4);
+camera.add(viewModelRig);
+
+const gunMat = new THREE.MeshStandardMaterial({ color: 0x2b2b2b, metalness: 0.4, roughness: 0.5 });
+const gunMeshes = WEAPONS.map((w) => {
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.3), gunMat);
+  group.add(body);
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, w.barrelLen, 8), gunMat);
+  barrel.rotation.x = Math.PI / 2;
+  barrel.position.set(0, 0.02, -0.15 - w.barrelLen / 2);
+  group.add(barrel);
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.07), gunMat);
+  grip.position.set(0, -0.13, 0.08);
+  group.add(grip);
+  group.visible = false;
+  viewModelRig.add(group);
+  return group;
+});
+
+const muzzleFlashLight = new THREE.PointLight(0xffdd88, 0, 4);
+viewModelRig.add(muzzleFlashLight);
+const muzzleFlashMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(0.04, 8, 8),
+  new THREE.MeshBasicMaterial({ color: 0xffdd88, transparent: true, opacity: 0 })
+);
+viewModelRig.add(muzzleFlashMesh);
+
+function updateViewModel() {
+  gunMeshes.forEach((m, i) => (m.visible = i === weaponIndex));
+  const w = currentWeapon();
+  const barrelTip = -0.15 - w.barrelLen;
+  muzzleFlashLight.position.set(0, 0.02, barrelTip);
+  muzzleFlashMesh.position.set(0, 0.02, barrelTip);
+}
+updateViewModel();
+
+function flashMuzzle() {
+  muzzleFlashLight.intensity = 3.5;
+  muzzleFlashMesh.material.opacity = 1;
+  setTimeout(() => {
+    muzzleFlashLight.intensity = 0;
+    muzzleFlashMesh.material.opacity = 0;
+  }, 45);
+}
+
+// --- Recoil (kicks aim up, recovers over time) ---
+let recoilKick = 0;
+function applyRecoil(amount) {
+  recoilKick += amount;
+}
+
+// --- ADS (aim down sights) ---
+let aiming = false;
+const baseFov = 70;
+
+// --- Synthesized audio (no external assets) ---
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function playGunshot() {
+  const ctx = getAudioCtx();
+  const noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 0.12, ctx.sampleRate);
+  const data = noiseBuf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+  const noise = ctx.createBufferSource();
+  noise.buffer = noiseBuf;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = 1800;
+  const gain = ctx.createGain();
+  gain.gain.value = 0.5;
+  noise.connect(filter).connect(gain).connect(ctx.destination);
+  noise.start();
+}
+function playMuzzleSound() {
+  playGunshot();
+}
+function playReloadSound() {
+  const ctx = getAudioCtx();
+  const osc = ctx.createOscillator();
+  osc.type = 'square';
+  osc.frequency.value = 420;
+  const gain = ctx.createGain();
+  gain.gain.value = 0.08;
+  osc.connect(gain).connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + 0.05);
+}
+let lastFootstep = 0;
+function playFootstep() {
+  const ctx = getAudioCtx();
+  const osc = ctx.createOscillator();
+  osc.type = 'triangle';
+  osc.frequency.value = 90 + Math.random() * 20;
+  const gain = ctx.createGain();
+  gain.gain.value = 0.06;
+  osc.connect(gain).connect(ctx.destination);
+  osc.start();
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+  osc.stop(ctx.currentTime + 0.08);
+}
 
 let weaponIndex = 0;
 let reloading = false;
 let lastFireTime = -999;
 const raycaster = new THREE.Raycaster();
 let score = 0;
+let gameReady = false;
+
+// --- Loadout / ready screen ---
+const loadoutScreen = document.getElementById('loadout-screen');
+const loadoutList = document.getElementById('loadout-list');
+const readyBtn = document.getElementById('ready-btn');
+let selectedLoadoutIndex = 0;
+
+function renderLoadoutScreen() {
+  loadoutList.innerHTML = '';
+  WEAPONS.forEach((w, i) => {
+    const card = document.createElement('div');
+    card.className = 'loadout-card' + (i === selectedLoadoutIndex ? ' selected' : '');
+    card.innerHTML = `
+      <h3>${w.name}</h3>
+      <div>Damage: ${w.damage}</div>
+      <div>Fire delay: ${w.fireDelay}s</div>
+      <div>Mag: ${w.magSize}</div>
+      <div>Reload: ${w.reloadTime}s</div>
+    `;
+    card.addEventListener('click', () => {
+      selectedLoadoutIndex = i;
+      renderLoadoutScreen();
+    });
+    loadoutList.appendChild(card);
+  });
+}
+renderLoadoutScreen();
+
+readyBtn.addEventListener('click', () => {
+  weaponIndex = selectedLoadoutIndex;
+  updateHud();
+  updateViewModel();
+  loadoutScreen.style.display = 'none';
+  document.body.classList.remove('game-hidden');
+  gameReady = true;
+  if (!renderer.xr.isPresenting) canvas.requestPointerLock();
+});
 
 function currentWeapon() {
   return WEAPONS[weaponIndex];
@@ -293,16 +469,20 @@ function switchWeapon() {
   if (reloading) return;
   weaponIndex = (weaponIndex + 1) % WEAPONS.length;
   updateHud();
+  updateViewModel();
 }
 
 function fireFrom(originMatrixWorld) {
-  if (!playerAlive) return;
+  if (!gameReady || !playerAlive) return;
   const w = currentWeapon();
   const now = clock.elapsedTime;
   if (reloading || w.ammo <= 0 || now - lastFireTime < w.fireDelay) return;
   lastFireTime = now;
   w.ammo -= 1;
   updateHud();
+  flashMuzzle();
+  playGunshot();
+  applyRecoil(w.recoil);
 
   const origin = new THREE.Vector3().setFromMatrixPosition(originMatrixWorld);
   const dir = new THREE.Vector3(0, 0, -1).transformDirection(originMatrixWorld).normalize();
@@ -319,6 +499,7 @@ function reload() {
   if (w.ammo === w.magSize) return;
   reloading = true;
   updateHud();
+  playReloadSound();
   setTimeout(() => {
     w.ammo = w.magSize;
     reloading = false;
@@ -343,9 +524,15 @@ document.addEventListener('mousemove', (e) => {
   pitch -= e.movementY * 0.0025;
   pitch = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, pitch));
 });
-document.addEventListener('mousedown', () => {
-  if (usingPointerLock) fireFrom(camera.matrixWorld);
+document.addEventListener('mousedown', (e) => {
+  if (!usingPointerLock) return;
+  if (e.button === 2) aiming = true;
+  else fireFrom(camera.matrixWorld);
 });
+document.addEventListener('mouseup', (e) => {
+  if (e.button === 2) aiming = false;
+});
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 window.addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   if (k === 'w' || k === 'arrowup') moveState.f = 1;
@@ -358,6 +545,7 @@ window.addEventListener('keydown', (e) => {
   if (['1', '2', '3', '4'].includes(k)) {
     weaponIndex = Number(k) - 1;
     updateHud();
+    updateViewModel();
   }
 });
 window.addEventListener('keyup', (e) => {
@@ -432,6 +620,9 @@ document.getElementById('switch-btn').addEventListener('touchstart', (e) => {
   e.preventDefault();
   switchWeapon();
 });
+const adsBtn = document.getElementById('ads-btn');
+adsBtn.addEventListener('touchstart', (e) => { e.preventDefault(); aiming = true; });
+adsBtn.addEventListener('touchend', (e) => { e.preventDefault(); aiming = false; });
 
 // --- VR controllers: trigger to fire, thumbstick to move ---
 const controllerModels = [];
@@ -468,14 +659,24 @@ function getVRThumbstick() {
 const clock = new THREE.Clock();
 
 function update(dt) {
+  if (!gameReady) return;
+
   if (!renderer.xr.isPresenting) {
     crosshair.style.display = cardboardMode ? 'none' : 'block';
 
+    recoilKick *= Math.pow(0.05, dt);
     if (cardboardMode && orientationControls) {
       orientationControls.update();
     } else {
-      camera.rotation.set(pitch, yaw, 0, 'YXZ');
+      camera.rotation.set(pitch - recoilKick, yaw, 0, 'YXZ');
     }
+
+    const targetFov = aiming ? currentWeapon().aimFov : baseFov;
+    if (Math.abs(camera.fov - targetFov) > 0.1) {
+      camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 10);
+      camera.updateProjectionMatrix();
+    }
+    viewModelRig.visible = !aiming;
 
     let dx = (moveState.r - moveState.l) + moveVec.x;
     let dy = (moveState.b - moveState.f) - moveVec.y;
@@ -486,9 +687,15 @@ function update(dt) {
       forward.y = 0; forward.normalize();
       const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
       right.y = 0; right.normalize();
-      const speed = 4.5 * dt;
+      const speed = (aiming ? 2.2 : 4.5) * dt;
       rig.position.addScaledVector(forward, -dy * speed);
       rig.position.addScaledVector(right, dx * speed);
+
+      lastFootstep += dt;
+      if (lastFootstep > 0.35) {
+        lastFootstep = 0;
+        playFootstep();
+      }
     }
 
     if (!cardboardMode && Math.hypot(lookVec.x, lookVec.y) > 0.1) {

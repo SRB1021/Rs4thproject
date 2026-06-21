@@ -6,7 +6,7 @@
 <title>Tactical Breach</title>
 <link rel="stylesheet" href="style.css" />
 </head>
-<body>
+<body class="game-hidden">
 <canvas id="game"></canvas>
 <div id="crosshair"></div>
 <div id="damage-flash"></div>
@@ -23,12 +23,20 @@
 <div id="touch-controls">
   <div id="stick-move" class="stick"><div class="stick-knob"></div></div>
   <button id="switch-btn">SWITCH</button>
+  <button id="ads-btn">ADS</button>
   <button id="fire-btn">FIRE</button>
   <div id="stick-look" class="stick"><div class="stick-knob"></div></div>
 </div>
 
 <div id="vr-button-container"></div>
 <button id="cardboard-btn">CARDBOARD VR</button>
+
+<div id="loadout-screen">
+  <h1>TACTICAL BREACH</h1>
+  <p>Choose your loadout</p>
+  <div id="loadout-list"></div>
+  <button id="ready-btn">READY</button>
+</div>
 
 <script type="importmap">
 {

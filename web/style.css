@@ -114,6 +114,21 @@ html, body {
   pointer-events: auto;
 }
 
+#ads-btn {
+  position: absolute;
+  right: 220px;
+  bottom: 100px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(80,140,255,0.25);
+  border: 2px solid rgba(255,255,255,0.4);
+  color: #fff;
+  font-weight: bold;
+  font-size: 10px;
+  pointer-events: auto;
+}
+
 @media (min-width: 900px) {
   #touch-controls { display: none; }
 }
@@ -150,6 +165,83 @@ body.cardboard-mode #touch-controls,
 body.cardboard-mode #crosshair,
 body.cardboard-mode #hud {
   display: none;
+}
+
+#loadout-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(15,18,21,0.94);
+  color: #e6e6e6;
+  font-family: -apple-system, system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+}
+
+#loadout-screen h1 {
+  margin: 0;
+  letter-spacing: 2px;
+  font-size: 32px;
+}
+
+#loadout-screen p {
+  margin: 0;
+  opacity: 0.7;
+}
+
+#loadout-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  max-width: 90vw;
+}
+
+.loadout-card {
+  width: 160px;
+  padding: 14px;
+  border: 2px solid rgba(255,255,255,0.25);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.04);
+  cursor: pointer;
+}
+
+.loadout-card.selected {
+  border-color: #3498db;
+  background: rgba(52,152,219,0.18);
+}
+
+.loadout-card h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.loadout-card div {
+  font-size: 12px;
+  opacity: 0.75;
+  margin: 2px 0;
+}
+
+#ready-btn {
+  margin-top: 8px;
+  padding: 12px 40px;
+  font-size: 16px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  background: #27ae60;
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+}
+
+body.game-hidden #hud,
+body.game-hidden #touch-controls,
+body.game-hidden #crosshair {
+  display: none !important;
 }
 
 #crosshair {
