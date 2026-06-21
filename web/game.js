@@ -545,7 +545,7 @@ readyBtn.addEventListener('click', () => {
   document.body.classList.remove('game-hidden');
   gameReady = true;
   if (!renderer.xr.isPresenting && canvas.requestPointerLock) {
-    canvas.requestPointerLock();
+    Promise.resolve(canvas.requestPointerLock()).catch(() => {});
   }
 });
 
@@ -604,30 +604,52 @@ function reload() {
   }, w.reloadTime * 1000);
 }
 
-// --- Desktop controls: mouse look (pointer lock) + WASD + click/space to fire ---
+// --- Desktop controls: mouse look (pointer lock, with click-drag fallback) + WASD ---
 let yaw = 0, pitch = 0;
 const moveState = { f: 0, b: 0, l: 0, r: 0 };
 let usingPointerLock = false;
+let dragLook = false;
+let lastMouseX = 0, lastMouseY = 0;
 
 canvas.addEventListener('click', () => {
-  if (!renderer.xr.isPresenting) canvas.requestPointerLock();
+  if (!renderer.xr.isPresenting && canvas.requestPointerLock) {
+    Promise.resolve(canvas.requestPointerLock()).catch(() => {});
+  }
 });
 document.addEventListener('pointerlockchange', () => {
   usingPointerLock = document.pointerLockElement === canvas;
 });
 document.addEventListener('mousemove', (e) => {
-  if (!usingPointerLock) return;
-  yaw -= e.movementX * 0.0025;
-  pitch -= e.movementY * 0.0025;
-  pitch = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, pitch));
+  if (usingPointerLock) {
+    yaw -= e.movementX * 0.0025;
+    pitch -= e.movementY * 0.0025;
+    pitch = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, pitch));
+  } else if (dragLook) {
+    const dx = e.clientX - lastMouseX;
+    const dy = e.clientY - lastMouseY;
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+    yaw -= dx * 0.0025;
+    pitch -= dy * 0.0025;
+    pitch = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, pitch));
+  }
 });
-document.addEventListener('mousedown', (e) => {
-  if (!usingPointerLock) return;
-  if (e.button === 2) aiming = true;
-  else fireFrom(camera.matrixWorld);
+canvas.addEventListener('mousedown', (e) => {
+  if (e.button === 2) {
+    aiming = true;
+    return;
+  }
+  if (e.button !== 0) return;
+  if (!usingPointerLock) {
+    dragLook = true;
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+  }
+  fireFrom(camera.matrixWorld);
 });
 document.addEventListener('mouseup', (e) => {
   if (e.button === 2) aiming = false;
+  if (e.button === 0) dragLook = false;
 });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 window.addEventListener('keydown', (e) => {
