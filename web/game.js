@@ -5,6 +5,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
 
 // Minimal device-orientation look control (the old three.js addon of this
 // name was removed from the library; this replaces it for cardboard mode).
@@ -112,6 +113,11 @@ scene.add(rig);
 
 composer.setSize(window.innerWidth, window.innerHeight);
 composer.addPass(new RenderPass(scene, camera));
+const ssaoPass = new SSAOPass(scene, camera, window.innerWidth, window.innerHeight);
+ssaoPass.kernelRadius = 0.6;
+ssaoPass.minDistance = 0.0008;
+ssaoPass.maxDistance = 0.06;
+composer.addPass(ssaoPass);
 composer.addPass(bloomPass);
 composer.addPass(new OutputPass());
 
@@ -121,18 +127,97 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
   stereoEffect.setSize(window.innerWidth, window.innerHeight);
   composer.setSize(window.innerWidth, window.innerHeight);
+  ssaoPass.setSize(window.innerWidth, window.innerHeight);
 });
+
+// --- Procedural surface textures (no external image assets available) ---
+// Generates a tileable noise/grain canvas texture so flat-colored boxes read
+// as concrete/metal/wood instead of pure solid color.
+function makeSurfaceTexture({ base, grain = 18, streaks = 0, size = 256 }) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const [r, g, b] = base;
+  ctx.fillStyle = `rgb(${r},${g},${b})`;
+  ctx.fillRect(0, 0, size, size);
+  const imgData = ctx.getImageData(0, 0, size, size);
+  const data = imgData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const n = (Math.random() - 0.5) * grain;
+    data[i] = Math.max(0, Math.min(255, data[i] + n));
+    data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + n));
+    data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + n));
+  }
+  ctx.putImageData(imgData, 0, 0);
+  if (streaks > 0) {
+    ctx.globalAlpha = 0.06;
+    for (let i = 0; i < streaks; i++) {
+      ctx.strokeStyle = Math.random() > 0.5 ? '#000' : '#fff';
+      ctx.lineWidth = 1 + Math.random() * 2;
+      const y = Math.random() * size;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(size, y + (Math.random() - 0.5) * 40);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+function makeRoughnessTexture(size = 256, base = 200, grain = 50) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const imgData = ctx.createImageData(size, size);
+  for (let i = 0; i < imgData.data.length; i += 4) {
+    const v = Math.max(0, Math.min(255, base + (Math.random() - 0.5) * grain));
+    imgData.data[i] = imgData.data[i + 1] = imgData.data[i + 2] = v;
+    imgData.data[i + 3] = 255;
+  }
+  ctx.putImageData(imgData, 0, 0);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  return texture;
+}
+
+const concreteMap = makeSurfaceTexture({ base: [122, 138, 147], grain: 22, streaks: 10 });
+concreteMap.repeat.set(8, 8);
+const concreteRough = makeRoughnessTexture(256, 215, 40);
+concreteRough.repeat.set(8, 8);
+
+const metalMap = makeSurfaceTexture({ base: [154, 167, 175], grain: 16, streaks: 14 });
+metalMap.repeat.set(3, 1.5);
+const metalRough = makeRoughnessTexture(256, 110, 60);
+metalRough.repeat.set(3, 1.5);
+
+const woodMap = makeSurfaceTexture({ base: [122, 90, 54], grain: 26, streaks: 18 });
+woodMap.repeat.set(2, 2);
 
 // --- Room (Refinery-inspired blockout: floor, walls, pipe cover) ---
 const floor = new THREE.Mesh(
   new THREE.PlaneGeometry(40, 40),
-  new THREE.MeshStandardMaterial({ color: 0x7a8a93, roughness: 0.95, metalness: 0.05 })
+  new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    map: concreteMap,
+    roughnessMap: concreteRough,
+    roughness: 1,
+    metalness: 0.05,
+  })
 );
 floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 scene.add(floor);
 
-const wallMat = new THREE.MeshStandardMaterial({ color: 0x9aa7af, roughness: 0.9, metalness: 0.1 });
+const wallMat = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+  map: metalMap,
+  roughnessMap: metalRough,
+  roughness: 1,
+  metalness: 0.15,
+});
 function addWall(x, z, w, d, h = 4) {
   const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
   wall.position.set(x, h / 2, z);
@@ -147,7 +232,13 @@ obstacles.push(addWall(0, 20, 40, 1));
 obstacles.push(addWall(-20, 0, 1, 40));
 obstacles.push(addWall(20, 0, 1, 40));
 
-const pipeMat = new THREE.MeshStandardMaterial({ color: 0x8d9aa1, roughness: 0.4, metalness: 0.6 });
+const pipeMat = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+  map: metalMap,
+  roughnessMap: metalRough,
+  roughness: 0.6,
+  metalness: 0.7,
+});
 for (let i = 0; i < 6; i++) {
   const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 3, 12), pipeMat);
   pipe.position.set(-8 + i * 3, 1.5, -2 + (i % 2) * 2);
@@ -180,7 +271,7 @@ fillLight.position.set(-12, 8, 14);
 scene.add(fillLight);
 
 // --- Map dressing: crates, barriers, distant skyline for depth/realism ---
-const crateMat = new THREE.MeshStandardMaterial({ color: 0x7a5a36, roughness: 0.95, metalness: 0.02 });
+const crateMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: woodMap, roughness: 0.95, metalness: 0.02 });
 function addCrate(x, z, size = 1.1) {
   const crate = new THREE.Mesh(new THREE.BoxGeometry(size, size, size), crateMat);
   crate.position.set(x, size / 2, z);
@@ -192,7 +283,13 @@ function addCrate(x, z, size = 1.1) {
 }
 [[6, 4], [7.5, 5.5], [-10, 8], [4, -9], [-5, -11], [12, -3], [-14, 2]].forEach(([x, z]) => addCrate(x, z));
 
-const barrierMat = new THREE.MeshStandardMaterial({ color: 0x5e6b6f, roughness: 0.85, metalness: 0.1 });
+const barrierMat = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+  map: metalMap,
+  roughnessMap: metalRough,
+  roughness: 0.85,
+  metalness: 0.2,
+});
 function addBarrier(x, z, w = 2.4, rotY = 0) {
   const barrier = new THREE.Mesh(new THREE.BoxGeometry(w, 1.1, 0.3), barrierMat);
   barrier.position.set(x, 0.55, z);
@@ -329,10 +426,12 @@ for (let i = 0; i < 5; i++) {
   enemies.push(enemy);
 }
 
+// Offsets are in player-facing space: negative z = ahead of the player (visible
+// on spawn, since the camera looks down -Z by default), positive z = trailing.
 const ALLY_OFFSETS = [
-  new THREE.Vector3(-1.6, 0, 1.2),
-  new THREE.Vector3(1.6, 0, 1.4),
-  new THREE.Vector3(0, 0, 2.2),
+  new THREE.Vector3(-2.0, 0, -1.5),
+  new THREE.Vector3(2.0, 0, -1.5),
+  new THREE.Vector3(0, 0, 1.8),
 ];
 for (let i = 0; i < ALLY_OFFSETS.length; i++) {
   const ally = buildSoldier('ally');
