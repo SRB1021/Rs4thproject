@@ -16,38 +16,125 @@ html, body {
 
 #hud {
   position: fixed;
-  top: 12px;
-  left: 12px;
-  right: 12px;
-  display: flex;
-  justify-content: space-between;
-  color: #e6e6e6;
-  font-family: -apple-system, system-ui, sans-serif;
-  font-size: 18px;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  inset: 0;
+  color: #f5f5f5;
+  font-family: 'Segoe UI', -apple-system, system-ui, sans-serif;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.85);
   pointer-events: none;
 }
 
-#hud-left {
+#hud-top {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 4px;
+}
+
+#top-bars {
+  display: flex;
+  gap: 3px;
+}
+
+#top-health-bar, #top-armor-bar {
+  width: 110px;
+  height: 7px;
+  background: rgba(0,0,0,0.45);
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+#top-health-fill {
+  height: 100%;
+  width: 100%;
+  background: #4aa3d8;
+  transition: width 0.15s linear;
+}
+
+#top-armor-fill {
+  height: 100%;
+  width: 0%;
+  background: #e08a2e;
+  transition: width 0.15s linear;
+}
+
+#score {
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.9;
+  letter-spacing: 1px;
+}
+
+#hud-left {
+  position: absolute;
+  left: 28px;
+  bottom: 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
 }
 
 #health {
-  font-weight: bold;
-  color: #e74c3c;
+  font-weight: 700;
+  font-size: 40px;
+  line-height: 1;
+  color: #fff;
+}
+
+#health-bar {
+  width: 130px;
+  height: 6px;
+  background: rgba(0,0,0,0.5);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+
+#health-bar-fill {
+  height: 100%;
+  width: 100%;
+  background: #e08a2e;
+  transition: width 0.15s linear;
 }
 
 #weapon-name {
-  font-size: 14px;
-  opacity: 0.85;
+  font-size: 13px;
+  opacity: 0.8;
 }
 
 #gear-name {
-  font-size: 13px;
-  opacity: 0.7;
+  font-size: 12px;
+  opacity: 0.75;
   color: #f1c40f;
+}
+
+#hud-right {
+  position: absolute;
+  right: 28px;
+  bottom: 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+#ammo-mode {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  opacity: 0.8;
+}
+
+#ammo {
+  font-weight: 700;
+  font-size: 36px;
+  line-height: 1;
+  color: #fff;
 }
 
 #damage-flash {
@@ -170,8 +257,8 @@ body:not(.touch-device) #touch-controls {
 
 #cardboard-btn {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
+  top: 16px;
+  right: 16px;
   z-index: 10;
   padding: 10px 16px;
   background: rgba(0,0,0,0.6);
@@ -316,10 +403,21 @@ body.game-hidden #crosshair {
   position: fixed;
   top: 50%;
   left: 50%;
-  width: 8px;
-  height: 8px;
-  margin: -4px;
+  width: 26px;
+  height: 26px;
+  margin: -13px;
   border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.8);
+  border: 1.5px solid rgba(255,40,40,0.55);
   pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#crosshair-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ff2f2f;
+  box-shadow: 0 0 4px rgba(255,30,30,0.9);
 }

@@ -42,6 +42,10 @@ const scoreEl = document.getElementById('score');
 const healthEl = document.getElementById('health');
 const weaponNameEl = document.getElementById('weapon-name');
 const gearNameEl = document.getElementById('gear-name');
+const ammoModeEl = document.getElementById('ammo-mode');
+const healthBarFillEl = document.getElementById('health-bar-fill');
+const topHealthFillEl = document.getElementById('top-health-fill');
+const topArmorFillEl = document.getElementById('top-armor-fill');
 const crosshair = document.getElementById('crosshair');
 const cardboardBtn = document.getElementById('cardboard-btn');
 const damageFlash = document.getElementById('damage-flash');
@@ -570,10 +574,10 @@ function spawnSparks(position) {
 
 // --- Weapons (stats from the Tactical Breach design doc) ---
 const WEAPONS = [
-  { name: 'MP-Sidearm', damage: 34, fireDelay: 0.18, magSize: 12, reloadTime: 1.0, recoil: 0.01, aimFov: 55, barrelLen: 0.35 },
-  { name: 'PDX-9 SMG', damage: 25, fireDelay: 0.09, magSize: 30, reloadTime: 1.4, recoil: 0.012, aimFov: 50, barrelLen: 0.5 },
-  { name: 'AR-15K', damage: 40, fireDelay: 0.11, magSize: 30, reloadTime: 1.8, recoil: 0.018, aimFov: 45, barrelLen: 0.75 },
-  { name: 'SR-50 Sniper', damage: 100, fireDelay: 0.9, magSize: 5, reloadTime: 2.2, recoil: 0.05, aimFov: 20, barrelLen: 1.0 },
+  { name: 'MP-Sidearm', damage: 34, fireDelay: 0.18, magSize: 12, reloadTime: 1.0, recoil: 0.01, aimFov: 55, barrelLen: 0.35, mode: 'SEMI' },
+  { name: 'PDX-9 SMG', damage: 25, fireDelay: 0.09, magSize: 30, reloadTime: 1.4, recoil: 0.012, aimFov: 50, barrelLen: 0.5, mode: 'AUTO' },
+  { name: 'AR-15K', damage: 40, fireDelay: 0.11, magSize: 30, reloadTime: 1.8, recoil: 0.018, aimFov: 45, barrelLen: 0.75, mode: 'AUTO' },
+  { name: 'SR-50 Sniper', damage: 100, fireDelay: 0.9, magSize: 5, reloadTime: 2.2, recoil: 0.05, aimFov: 20, barrelLen: 1.0, mode: 'BOLT' },
 ];
 WEAPONS.forEach((w) => (w.ammo = w.magSize));
 
@@ -615,6 +619,41 @@ viewModelRig.position.set(0.22, -0.2, -0.4);
 camera.add(viewModelRig);
 
 const gunMat = new THREE.MeshStandardMaterial({ color: 0x2b2b2b, metalness: 0.4, roughness: 0.5 });
+const scopeMat = new THREE.MeshStandardMaterial({ color: 0x161616, metalness: 0.6, roughness: 0.35 });
+const lensMat = new THREE.MeshBasicMaterial({ color: 0x2eff6b });
+const sniperLensMat = new THREE.MeshBasicMaterial({ color: 0x7fd0ff });
+
+function addReflexSight(group, bodyTopY) {
+  // Low-profile red/green-dot reflex sight, sits just above the receiver.
+  const mount = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.018, 0.05), scopeMat);
+  mount.position.set(0, bodyTopY + 0.009, -0.04);
+  group.add(mount);
+  const housing = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.032, 0.06), scopeMat);
+  housing.position.set(0, bodyTopY + 0.034, -0.04);
+  group.add(housing);
+  const lens = new THREE.Mesh(new THREE.CircleGeometry(0.012, 12), lensMat);
+  lens.position.set(0, bodyTopY + 0.034, -0.07);
+  group.add(lens);
+}
+
+function addSniperScope(group, bodyTopY, barrelLen) {
+  // Long tube scope with two adjustment turrets, mounted along the top rail.
+  const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.032, 0.32, 12), scopeMat);
+  tube.rotation.x = Math.PI / 2;
+  tube.position.set(0, bodyTopY + 0.05, -0.18);
+  group.add(tube);
+  const frontLens = new THREE.Mesh(new THREE.CircleGeometry(0.026, 12), sniperLensMat);
+  frontLens.position.set(0, bodyTopY + 0.05, -0.34);
+  group.add(frontLens);
+  const turret = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.03, 8), scopeMat);
+  turret.position.set(0, bodyTopY + 0.08, -0.18);
+  group.add(turret);
+  const sideTurret = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.03, 8), scopeMat);
+  sideTurret.rotation.z = Math.PI / 2;
+  sideTurret.position.set(0.02, bodyTopY + 0.05, -0.1);
+  group.add(sideTurret);
+}
+
 const gunMeshes = WEAPONS.map((w) => {
   const group = new THREE.Group();
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.3), gunMat);
@@ -626,6 +665,13 @@ const gunMeshes = WEAPONS.map((w) => {
   const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.07), gunMat);
   grip.position.set(0, -0.13, 0.08);
   group.add(grip);
+
+  if (w.mode === 'BOLT') {
+    addSniperScope(group, 0.05, w.barrelLen);
+  } else {
+    addReflexSight(group, 0.05);
+  }
+
   group.visible = false;
   viewModelRig.add(group);
   return group;
@@ -818,9 +864,15 @@ readyBtn.addEventListener('click', () => {
 function updateHud() {
   const w = currentWeapon();
   weaponNameEl.textContent = w.name;
-  ammoEl.textContent = reloading ? 'Reloading...' : `Ammo: ${w.ammo}/${w.magSize}`;
-  scoreEl.textContent = `Score: ${score}`;
-  healthEl.textContent = `HP: ${Math.ceil(playerHealth)}`;
+  ammoEl.textContent = reloading ? '...' : `${w.ammo}/${w.magSize}`;
+  ammoModeEl.textContent = w.mode;
+  scoreEl.textContent = String(score);
+  healthEl.textContent = String(Math.ceil(playerHealth));
+  const healthPct = Math.max(0, Math.min(1, playerHealth / playerMaxHealth)) * 100;
+  healthBarFillEl.style.width = `${healthPct}%`;
+  topHealthFillEl.style.width = `${healthPct}%`;
+  const armorBonus = playerMaxHealth - 100;
+  topArmorFillEl.style.width = armorBonus > 0 ? `${Math.min(100, (armorBonus / 100) * 100)}%` : '0%';
   const g = currentGear();
   if (!g) {
     gearNameEl.textContent = 'Gear: None';
