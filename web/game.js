@@ -61,7 +61,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
+renderer.toneMappingExposure = 2.2;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.xr.enabled = true;
@@ -101,8 +101,9 @@ cardboardBtn.addEventListener('click', async () => {
 });
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xb9c7d2);
-scene.fog = new THREE.Fog(0xb9c7d2, 28, 75);
+// Abandoned oil rig: overcast dusk, heavy sea mist
+scene.background = new THREE.Color(0x1a1e22);
+scene.fog = new THREE.FogExp2(0x1a1e22, 0.038);
 
 const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 100);
 
@@ -130,7 +131,7 @@ const filmGradePass = new ShaderPass({
     time: { value: 0 },
     vignetteStrength: { value: 0.45 },
     aberration: { value: 0.0022 },
-    grainStrength: { value: 0.035 },
+    grainStrength: { value: 0.018 },
   },
   vertexShader: `
     varying vec2 vUv;
@@ -272,11 +273,13 @@ function tile(tex, x, y) {
   return tex;
 }
 
-const concreteMap = tile(makeSurfaceTexture({ base: [122, 138, 147], grain: 26, streaks: 16, size: 512 }), 8, 8);
+// Oil rig grating/deck — dark corroded steel with rust streaks
+const concreteMap = tile(makeSurfaceTexture({ base: [52, 46, 40], grain: 30, streaks: 28, size: 512 }), 8, 8);
 const concreteRough = tile(makeRoughnessTexture(512, 215, 45), 8, 8);
 const concreteBump = tile(makeBumpTexture(512, 60, 30), 8, 8);
 
-const metalMap = tile(makeSurfaceTexture({ base: [154, 167, 175], grain: 20, streaks: 22, size: 512 }), 3, 1.5);
+// Corroded structural steel — dark grey-brown with rust
+const metalMap = tile(makeSurfaceTexture({ base: [70, 58, 48], grain: 24, streaks: 30, size: 512 }), 3, 1.5);
 const metalRough = tile(makeRoughnessTexture(512, 110, 70), 3, 1.5);
 const metalBump = tile(makeBumpTexture(512, 90, 40), 3, 1.5);
 
@@ -341,13 +344,14 @@ for (let i = 0; i < 6; i++) {
   obstacles.push(pipe);
 }
 
-const hemi = new THREE.HemisphereLight(0xdfe8ee, 0x8a8270, 1.0);
+// Oil rig: moody night but still playable
+const hemi = new THREE.HemisphereLight(0x4a6080, 0x2a1810, 1.8);
 scene.add(hemi);
-const ambient = new THREE.AmbientLight(0xc9d4da, 0.4);
+const ambient = new THREE.AmbientLight(0x3a4860, 1.4);
 scene.add(ambient);
-// Low, slightly warm overcast-industrial sun (matches a hazy refinery sky).
-const dirLight = new THREE.DirectionalLight(0xfff2d8, 2.6);
-dirLight.position.set(18, 22, -8);
+// Moonlight: cold blue-grey from high angle
+const dirLight = new THREE.DirectionalLight(0x99aabb, 2.0);
+dirLight.position.set(-10, 28, 12);
 dirLight.castShadow = true;
 dirLight.shadow.mapSize.set(2048, 2048);
 dirLight.shadow.camera.near = 1;
@@ -358,10 +362,21 @@ dirLight.shadow.camera.top = 25;
 dirLight.shadow.camera.bottom = -25;
 dirLight.shadow.bias = -0.001;
 scene.add(dirLight);
-// Cool bounce/fill light from the opposite side so shadows aren't pure black.
-const fillLight = new THREE.DirectionalLight(0xaecbe0, 0.5);
-fillLight.position.set(-12, 8, 14);
-scene.add(fillLight);
+// Gas flare: warm orange-red point light from far corner
+const flareLight = new THREE.PointLight(0xff6020, 3.5, 30);
+flareLight.position.set(-16, 8, -14);
+scene.add(flareLight);
+// Work lamps scattered across the rig deck
+const workLight = new THREE.PointLight(0xffcc44, 2.2, 16);
+workLight.position.set(6, 4, 2);
+scene.add(workLight);
+const workLight2 = new THREE.PointLight(0xffbb33, 1.8, 14);
+workLight2.position.set(-4, 3.5, 8);
+scene.add(workLight2);
+const workLight3 = new THREE.PointLight(0xff9922, 1.6, 12);
+workLight3.position.set(10, 3, -8);
+scene.add(workLight3);
+const fillLight = workLight; // keep fillLight ref so resize handler still works
 
 // --- Map dressing: crates, barriers, distant skyline for depth/realism ---
 const crateMat = new THREE.MeshStandardMaterial({
@@ -460,7 +475,8 @@ function addCatwalk(x, z, length = 6, rotY = 0, deckHeight = 3) {
 addCatwalk(7, 5, 7, Math.PI / 2);
 addCatwalk(-9, -8, 6, 0.3);
 
-const skylineMat = new THREE.MeshStandardMaterial({ color: 0x6f7d86, roughness: 1, fog: true });
+// Distant platform/derrick silhouettes fading into sea mist
+const skylineMat = new THREE.MeshStandardMaterial({ color: 0x0e1214, roughness: 1, fog: true });
 for (let i = 0; i < 14; i++) {
   const angle = (i / 14) * Math.PI * 2;
   const dist = 36 + Math.random() * 6;
@@ -486,60 +502,142 @@ const bootMat = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.9
 function buildSoldier(team) {
   const palette = TEAM_PALETTES[team];
   const group = new THREE.Group();
-  const uniformMat = new THREE.MeshStandardMaterial({
-    color: palette.camo[Math.floor(Math.random() * palette.camo.length)],
-    roughness: 0.85,
-    metalness: 0.05,
-  });
+  const camoColor = palette.camo[Math.floor(Math.random() * palette.camo.length)];
+  const uniformMat = new THREE.MeshStandardMaterial({ color: camoColor, roughness: 0.9, metalness: 0.0 });
+  const uniformMatDark = new THREE.MeshStandardMaterial({ color: palette.camo[0], roughness: 0.9, metalness: 0.0 });
 
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 0.85, 4, 8), uniformMat);
+  // Torso
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.6, 0.26), uniformMat);
   torso.position.y = 1.1;
   group.add(torso);
 
-  const vest = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.55, 0.22), vestMat);
-  vest.position.set(0, 1.2, 0.04);
+  // Tactical vest (plate carrier)
+  const vest = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.56, 0.28), vestMat);
+  vest.position.set(0, 1.12, 0);
   group.add(vest);
 
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 12), skinMat);
-  head.position.y = 1.75;
+  // Front pouches on vest
+  const pouchGeo = new THREE.BoxGeometry(0.1, 0.12, 0.07);
+  const pouchMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.95 });
+  [-0.13, 0, 0.13].forEach(px => {
+    const pouch = new THREE.Mesh(pouchGeo, pouchMat);
+    pouch.position.set(px, 0.92, 0.16);
+    group.add(pouch);
+  });
+
+  // Shoulders (pauldrons)
+  const shoulderGeo = new THREE.BoxGeometry(0.18, 0.14, 0.22);
+  const shoulderL = new THREE.Mesh(shoulderGeo, vestMat);
+  shoulderL.position.set(-0.32, 1.35, 0);
+  group.add(shoulderL);
+  const shoulderR = new THREE.Mesh(shoulderGeo, vestMat);
+  shoulderR.position.set(0.32, 1.35, 0);
+  group.add(shoulderR);
+
+  // Head / balaclava
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.19, 12, 12), uniformMatDark);
+  head.position.y = 1.76;
   group.add(head);
 
-  const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12, 0, Math.PI * 2, 0, Math.PI * 0.6), vestMat);
-  helmet.position.y = 1.8;
-  group.add(helmet);
+  // Helmet (ops-core style — rounded top, flat brim)
+  const helmetDome = new THREE.Mesh(
+    new THREE.SphereGeometry(0.215, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.58),
+    vestMat
+  );
+  helmetDome.position.y = 1.81;
+  group.add(helmetDome);
 
-  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.08, 0.05), visorMat);
-  visor.position.set(0, 1.78, 0.18);
+  // Helmet brim
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.235, 0.04, 16, 1, true), vestMat);
+  brim.position.y = 1.76;
+  group.add(brim);
+
+  // NVG mount stub on front of helmet
+  const nvgMat = new THREE.MeshStandardMaterial({ color: 0x0d0d0d, roughness: 0.7, metalness: 0.3 });
+  const nvgMount = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.05, 0.06), nvgMat);
+  nvgMount.position.set(0, 1.85, 0.19);
+  group.add(nvgMount);
+
+  // Visor / eye protection
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.07, 0.04), visorMat);
+  visor.position.set(0, 1.75, 0.19);
   group.add(visor);
 
-  const armGeo = new THREE.CapsuleGeometry(0.09, 0.6, 4, 6);
-  const armL = new THREE.Mesh(armGeo, uniformMat);
-  armL.position.set(-0.4, 1.15, 0);
-  group.add(armL);
-  const armR = new THREE.Mesh(armGeo, uniformMat);
-  armR.position.set(0.4, 1.15, 0);
-  group.add(armR);
+  // Arms (upper + lower segments for a slight bent look)
+  const upperArmGeo = new THREE.CapsuleGeometry(0.085, 0.3, 4, 6);
+  const lowerArmGeo = new THREE.CapsuleGeometry(0.075, 0.28, 4, 6);
 
+  const upperArmL = new THREE.Mesh(upperArmGeo, uniformMat);
+  upperArmL.position.set(-0.36, 1.26, 0);
+  upperArmL.rotation.z = 0.18;
+  group.add(upperArmL);
+
+  const lowerArmL = new THREE.Mesh(lowerArmGeo, uniformMat);
+  lowerArmL.position.set(-0.42, 0.98, 0.08);
+  lowerArmL.rotation.z = 0.1;
+  lowerArmL.rotation.x = 0.3;
+  group.add(lowerArmL);
+
+  const upperArmR = new THREE.Mesh(upperArmGeo, uniformMat);
+  upperArmR.position.set(0.36, 1.26, 0);
+  upperArmR.rotation.z = -0.18;
+  group.add(upperArmR);
+
+  const lowerArmR = new THREE.Mesh(lowerArmGeo, uniformMat);
+  lowerArmR.position.set(0.42, 0.98, 0.08);
+  lowerArmR.rotation.z = -0.1;
+  lowerArmR.rotation.x = 0.3;
+  group.add(lowerArmR);
+
+  // Team armband on left upper arm
   const armbandMat = new THREE.MeshStandardMaterial({ color: palette.armband, roughness: 0.6 });
-  const armband = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.08, 10), armbandMat);
+  const armband = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.095, 0.07, 10), armbandMat);
   armband.rotation.z = Math.PI / 2;
-  armband.position.set(0.4, 1.35, 0);
+  armband.position.set(-0.36, 1.3, 0);
   group.add(armband);
 
-  const legGeo = new THREE.CapsuleGeometry(0.11, 0.7, 4, 6);
+  // Rifle held in front (simple block gun across the body)
+  const rifleBodyMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.8, metalness: 0.3 });
+  const rifleBody = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.07, 0.58), rifleBodyMat);
+  rifleBody.position.set(0.18, 1.05, 0.24);
+  group.add(rifleBody);
+  const rifleBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.28, 7), rifleBodyMat);
+  rifleBarrel.rotation.x = Math.PI / 2;
+  rifleBarrel.position.set(0.18, 1.07, 0.5);
+  group.add(rifleBarrel);
+  const rifleStock = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.1, 0.16), rifleBodyMat);
+  rifleStock.position.set(0.18, 1.02, -0.06);
+  group.add(rifleStock);
+  const rifleMag = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.14, 0.05), rifleBodyMat);
+  rifleMag.position.set(0.18, 0.94, 0.18);
+  group.add(rifleMag);
+
+  // Legs
+  const legGeo = new THREE.CapsuleGeometry(0.11, 0.65, 4, 6);
   const legL = new THREE.Mesh(legGeo, uniformMat.clone());
-  legL.position.set(-0.15, 0.4, 0);
+  legL.position.set(-0.14, 0.42, 0);
   group.add(legL);
   const legR = new THREE.Mesh(legGeo, uniformMat.clone());
-  legR.position.set(0.15, 0.4, 0);
+  legR.position.set(0.14, 0.42, 0);
   group.add(legR);
 
-  const bootGeo = new THREE.BoxGeometry(0.14, 0.12, 0.24);
+  // Knee pads
+  const kneePadGeo = new THREE.BoxGeometry(0.14, 0.1, 0.1);
+  const kneePadMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
+  const kneeL = new THREE.Mesh(kneePadGeo, kneePadMat);
+  kneeL.position.set(-0.14, 0.28, 0.06);
+  group.add(kneeL);
+  const kneeR = new THREE.Mesh(kneePadGeo, kneePadMat);
+  kneeR.position.set(0.14, 0.28, 0.06);
+  group.add(kneeR);
+
+  // Boots
+  const bootGeo = new THREE.BoxGeometry(0.15, 0.14, 0.26);
   const bootL = new THREE.Mesh(bootGeo, bootMat);
-  bootL.position.set(-0.15, 0.06, 0.04);
+  bootL.position.set(-0.14, 0.07, 0.05);
   group.add(bootL);
   const bootR = new THREE.Mesh(bootGeo, bootMat);
-  bootR.position.set(0.15, 0.06, 0.04);
+  bootR.position.set(0.14, 0.07, 0.05);
   group.add(bootR);
 
   group.traverse((child) => {
@@ -562,7 +660,7 @@ function buildSoldier(team) {
     wanderTarget: new THREE.Vector3(),
     wanderTimer: 0,
     legPhase: Math.random() * Math.PI * 2,
-    legL, legR, armL, armR,
+    legL, legR, armL: upperArmL, armR: upperArmR,
   };
 
   return group;
@@ -1526,6 +1624,10 @@ const clock = new THREE.Clock();
 
 function update(dt) {
   if (!gameReady) return;
+
+  // Gas flare flicker — vary intensity rapidly like a real flame
+  flareLight.intensity = 3.0 + Math.sin(clock.getElapsedTime() * 11.3) * 0.7
+    + Math.sin(clock.getElapsedTime() * 7.1) * 0.4;
 
   if (!renderer.xr.isPresenting) {
     crosshair.style.display = cardboardMode ? 'none' : 'block';
