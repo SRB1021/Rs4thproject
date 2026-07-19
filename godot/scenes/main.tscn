@@ -1,8 +1,9 @@
-[gd_scene load_steps=27 format=3 uid="uid://b1n4mwq8x7v2a"]
+[gd_scene load_steps=28 format=3 uid="uid://b1n4mwq8x7v2a"]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/enemy.gd" id="2"]
 [ext_resource type="Script" path="res://scripts/flare_flicker.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/ally.gd" id="4"]
 
 ; ---- Environment: night sky + exponential fog ----
 [sub_resource type="Environment" id="Environment_main"]
@@ -308,3 +309,149 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
 
 [node name="RayCast3D" type="RayCast3D" parent="Enemy/Eyes"]
 target_position = Vector3(0, 0, -18)
+
+; ---- Ally team (blue armband, follows player, fights enemies) ----
+
+[node name="Ally1" type="CharacterBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 1, 3)
+script = ExtResource("4")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ally1"]
+shape = SubResource("CapsuleShape_enemy")
+
+[node name="Torso" type="MeshInstance3D" parent="Ally1"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
+mesh = SubResource("Mesh_torso")
+surface_material_override/0 = SubResource("Mat_uniform")
+
+[node name="Vest" type="MeshInstance3D" parent="Ally1"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.12, 0)
+mesh = SubResource("Mesh_vest")
+surface_material_override/0 = SubResource("Mat_vest")
+
+[node name="Head" type="MeshInstance3D" parent="Ally1"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.72, 0)
+mesh = SubResource("Mesh_head")
+surface_material_override/0 = SubResource("Mat_uniform")
+
+[node name="Helmet" type="MeshInstance3D" parent="Ally1"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.86, 0)
+mesh = SubResource("Mesh_helmet")
+surface_material_override/0 = SubResource("Mat_helmet")
+
+[node name="LegL" type="MeshInstance3D" parent="Ally1"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.13, 0.42, 0)
+mesh = SubResource("Mesh_leg")
+surface_material_override/0 = SubResource("Mat_uniform")
+
+[node name="LegR" type="MeshInstance3D" parent="Ally1"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.13, 0.42, 0)
+mesh = SubResource("Mesh_leg")
+surface_material_override/0 = SubResource("Mat_uniform")
+
+[node name="Rifle" type="MeshInstance3D" parent="Ally1"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.2, 1.05, 0.22)
+mesh = SubResource("Mesh_rifle")
+surface_material_override/0 = SubResource("Mat_rifle")
+
+[node name="Eyes" type="Node3D" parent="Ally1"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+
+[node name="RayCast3D" type="RayCast3D" parent="Ally1/Eyes"]
+target_position = Vector3(0, 0, -20)
+
+[node name="Ally2" type="CharacterBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 1, 3)
+script = ExtResource("4")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ally2"]
+shape = SubResource("CapsuleShape_enemy")
+
+[node name="Torso" type="MeshInstance3D" parent="Ally2"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
+mesh = SubResource("Mesh_torso")
+surface_material_override/0 = SubResource("Mat_uniform")
+
+[node name="Vest" type="MeshInstance3D" parent="Ally2"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.12, 0)
+mesh = SubResource("Mesh_vest")
+surface_material_override/0 = SubResource("Mat_vest")
+
+[node name="Head" type="MeshInstance3D" parent="Ally2"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.72, 0)
+mesh = SubResource("Mesh_head")
+surface_material_override/0 = SubResource("Mat_uniform")
+
+[node name="Helmet" type="MeshInstance3D" parent="Ally2"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.86, 0)
+mesh = SubResource("Mesh_helmet")
+surface_material_override/0 = SubResource("Mat_helmet")
+
+[node name="LegL" type="MeshInstance3D" parent="Ally2"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.13, 0.42, 0)
+mesh = SubResource("Mesh_leg")
+surface_material_override/0 = SubResource("Mat_uniform")
+
+[node name="LegR" type="MeshInstance3D" parent="Ally2"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.13, 0.42, 0)
+mesh = SubResource("Mesh_leg")
+surface_material_override/0 = SubResource("Mat_uniform")
+
+[node name="Rifle" type="MeshInstance3D" parent="Ally2"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.2, 1.05, 0.22)
+mesh = SubResource("Mesh_rifle")
+surface_material_override/0 = SubResource("Mat_rifle")
+
+[node name="Eyes" type="Node3D" parent="Ally2"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+
+[node name="RayCast3D" type="RayCast3D" parent="Ally2/Eyes"]
+target_position = Vector3(0, 0, -20)
+
+[node name="Ally3" type="CharacterBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 4)
+script = ExtResource("4")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ally3"]
+shape = SubResource("CapsuleShape_enemy")
+
+[node name="Torso" type="MeshInstance3D" parent="Ally3"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
+mesh = SubResource("Mesh_torso")
+surface_material_override/0 = SubResource("Mat_uniform")
+
+[node name="Vest" type="MeshInstance3D" parent="Ally3"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.12, 0)
+mesh = SubResource("Mesh_vest")
+surface_material_override/0 = SubResource("Mat_vest")
+
+[node name="Head" type="MeshInstance3D" parent="Ally3"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.72, 0)
+mesh = SubResource("Mesh_head")
+surface_material_override/0 = SubResource("Mat_uniform")
+
+[node name="Helmet" type="MeshInstance3D" parent="Ally3"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.86, 0)
+mesh = SubResource("Mesh_helmet")
+surface_material_override/0 = SubResource("Mat_helmet")
+
+[node name="LegL" type="MeshInstance3D" parent="Ally3"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.13, 0.42, 0)
+mesh = SubResource("Mesh_leg")
+surface_material_override/0 = SubResource("Mat_uniform")
+
+[node name="LegR" type="MeshInstance3D" parent="Ally3"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.13, 0.42, 0)
+mesh = SubResource("Mesh_leg")
+surface_material_override/0 = SubResource("Mat_uniform")
+
+[node name="Rifle" type="MeshInstance3D" parent="Ally3"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.2, 1.05, 0.22)
+mesh = SubResource("Mesh_rifle")
+surface_material_override/0 = SubResource("Mat_rifle")
+
+[node name="Eyes" type="Node3D" parent="Ally3"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+
+[node name="RayCast3D" type="RayCast3D" parent="Ally3/Eyes"]
+target_position = Vector3(0, 0, -20)

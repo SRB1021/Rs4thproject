@@ -17,6 +17,7 @@ var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 func _ready() -> void:
 	player = get_tree().get_root().find_child("Player", true, false)
+	add_to_group("enemies")
 
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():
