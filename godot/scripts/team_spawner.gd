@@ -2,7 +2,11 @@ extends Node3D
 
 const ALLY_COUNT := 19
 const ALLY_SCRIPT := preload("res://scripts/ally.gd")
-const SOLDIER_MODEL := preload("res://swat-operator-remastered/swat_operator_remastered_0.glb")
+const PART0 := preload("res://swat-operator-remastered/swat_operator_remastered_0.glb")
+const PART1 := preload("res://swat-operator-remastered/swat_operator_remastered_1.glb")
+const PART2 := preload("res://swat-operator-remastered/swat_operator_remastered_2.glb")
+const PART3 := preload("res://swat-operator-remastered/swat_operator_remastered_3.glb")
+const PART4 := preload("res://swat-operator-remastered/swat_operator_remastered_4.glb")
 
 const OFFSETS := [
 	Vector3(-2, 0, 3), Vector3(2, 0, 3), Vector3(0, 0, 4),
