@@ -2,11 +2,21 @@ extends Node3D
 
 const ALLY_COUNT := 19
 const ALLY_SCRIPT := preload("res://scripts/ally.gd")
-const PART0 := preload("res://swat-operator-remastered/swat_operator_remastered_0.glb")
-const PART1 := preload("res://swat-operator-remastered/swat_operator_remastered_1.glb")
-const PART2 := preload("res://swat-operator-remastered/swat_operator_remastered_2.glb")
-const PART3 := preload("res://swat-operator-remastered/swat_operator_remastered_3.glb")
-const PART4 := preload("res://swat-operator-remastered/swat_operator_remastered_4.glb")
+
+const PARTS := [
+	preload("res://swat-operator-remastered/swat_operator_remastered_0.glb"),
+	preload("res://swat-operator-remastered/swat_operator_remastered_1.glb"),
+	preload("res://swat-operator-remastered/swat_operator_remastered_2.glb"),
+	preload("res://swat-operator-remastered/swat_operator_remastered_3.glb"),
+	preload("res://swat-operator-remastered/swat_operator_remastered_4.glb"),
+	preload("res://swat-operator-remastered/swat_operator_remastered_5.glb"),
+	preload("res://swat-operator-remastered/swat_operator_remastered_6.glb"),
+	preload("res://swat-operator-remastered/swat_operator_remastered_7.glb"),
+	preload("res://swat-operator-remastered/swat_operator_remastered_8.glb"),
+	preload("res://swat-operator-remastered/swat_operator_remastered_9.glb"),
+	preload("res://swat-operator-remastered/swat_operator_remastered_10.glb"),
+	preload("res://swat-operator-remastered/swat_operator_remastered_11.glb"),
+]
 
 const OFFSETS := [
 	Vector3(-2, 0, 3), Vector3(2, 0, 3), Vector3(0, 0, 4),
@@ -34,10 +44,11 @@ func _ready() -> void:
 		col.shape = capsule_shape
 		ally.add_child(col)
 
-		# Spawn the SWAT model as the visual
-		var model: Node3D = SOLDIER_MODEL.instantiate()
-		model.position = Vector3(0, 0, 0)
-		ally.add_child(model)
+		# Add all parts of the soldier model so full body shows
+		for part in PARTS:
+			var model: Node3D = part.instantiate()
+			model.position = Vector3.ZERO
+			ally.add_child(model)
 
 		var eyes := Node3D.new()
 		eyes.name = "Eyes"
