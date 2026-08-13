@@ -33,6 +33,7 @@ func _ready() -> void:
 
 		var model: Node3D = MODEL.instantiate()
 		model.position = Vector3.ZERO
+		_tint_model(model, Color(0.05, 0.05, 0.05))
 		ally.add_child(model)
 
 		var eyes := Node3D.new()
@@ -45,3 +46,13 @@ func _ready() -> void:
 		eyes.add_child(ray)
 
 		get_parent().add_child(ally)
+
+func _tint_model(node: Node, color: Color) -> void:
+	if node is MeshInstance3D:
+		for i in node.get_surface_override_material_count():
+			var mat := StandardMaterial3D.new()
+			mat.albedo_color = color
+			mat.roughness = 0.8
+			node.set_surface_override_material(i, mat)
+	for child in node.get_children():
+		_tint_model(child, color)
