@@ -43,7 +43,7 @@ func _physics_process(delta: float) -> void:
 
 	fire_timer -= delta
 	if Input.is_key_pressed(KEY_S) and fire_timer <= 0.0:
-		fire_timer = 0.1
+		fire_timer = 0.05
 		shoot()
 
 func shoot() -> void:
