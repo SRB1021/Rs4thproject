@@ -1,4 +1,4 @@
-[gd_scene load_steps=31 format=3 uid="uid://b1n4mwq8x7v2a"]
+[gd_scene load_steps=32 format=3 uid="uid://b1n4mwq8x7v2a"]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/enemy.gd" id="2"]
@@ -46,8 +46,11 @@ size = Vector3(160, 0.5, 160)
 [sub_resource type="BoxShape3D" id="BoxShape3D_floor"]
 size = Vector3(160, 0.5, 160)
 
+[ext_resource type="Texture2D" path="res://rocks_ground_02_1k/textures/rocks_ground_02_col_1k.jpg" id="7"]
+
 [sub_resource type="StandardMaterial3D" id="Mat_floor"]
-albedo_color = Color(0.25, 0.18, 0.10, 1)
+albedo_texture = ExtResource("7")
+uv1_scale = Vector3(20, 20, 1)
 roughness = 1.0
 metallic = 0.0
 
