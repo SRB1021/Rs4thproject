@@ -1,4 +1,4 @@
-[gd_scene load_steps=30 format=3 uid="uid://b1n4mwq8x7v2a"]
+[gd_scene load_steps=31 format=3 uid="uid://b1n4mwq8x7v2a"]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/enemy.gd" id="2"]
@@ -7,22 +7,37 @@
 [ext_resource type="Script" path="res://scripts/enemy_spawner.gd" id="5"]
 [ext_resource type="Script" path="res://scripts/team_spawner.gd" id="6"]
 
-; ---- Environment: night sky + exponential fog ----
+; ---- Procedural Sky ----
+[sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
+sky_top_color = Color(0.18, 0.35, 0.72, 1)
+sky_horizon_color = Color(0.72, 0.55, 0.38, 1)
+sky_curve = 0.09
+ground_bottom_color = Color(0.12, 0.10, 0.08, 1)
+ground_horizon_color = Color(0.55, 0.42, 0.28, 1)
+ground_curve = 0.02
+sun_angle_max = 30.0
+sun_curve = 0.12
+
+[sub_resource type="Sky" id="Sky_main"]
+sky_material = SubResource("SkyMat")
+
+; ---- Environment ----
 [sub_resource type="Environment" id="Environment_main"]
-background_mode = 1
-background_color = Color(0.05, 0.06, 0.08, 1)
-ambient_light_source = 1
-ambient_light_color = Color(0.4, 0.45, 0.55, 1)
-ambient_light_energy = 2.5
+background_mode = 2
+sky = SubResource("Sky_main")
+ambient_light_source = 3
+ambient_light_energy = 1.5
 fog_enabled = true
-fog_light_color = Color(0.05, 0.07, 0.1, 1)
-fog_density = 0.015
-fog_aerial_perspective = 0.2
+fog_light_color = Color(0.6, 0.5, 0.35, 1)
+fog_density = 0.008
+fog_aerial_perspective = 0.15
 glow_enabled = true
-glow_intensity = 0.8
-glow_bloom = 0.3
+glow_intensity = 0.6
+glow_bloom = 0.2
 ssao_enabled = true
 ssil_enabled = true
+tonemap_mode = 2
+tonemap_exposure = 1.2
 
 ; ---- Floor: dark corroded steel deck ----
 [sub_resource type="BoxMesh" id="BoxMesh_floor"]
@@ -127,12 +142,13 @@ height = 1.8
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_main")
 
-; -- Moonlight (cold blue-grey directional) --
+; -- Sunlight --
 [node name="MoonLight" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.85, -0.4, 0.34, 0, 0.65, 0.76, -0.52, -0.65, 0.56, 0, 28, 12)
-light_color = Color(0.6, 0.68, 0.85, 1)
-light_energy = 4.0
+light_color = Color(1.0, 0.92, 0.75, 1)
+light_energy = 3.0
 shadow_enabled = true
+shadow_bias = 0.05
 
 ; -- Gas flare (flickering orange point light) --
 [node name="GasFlare" type="OmniLight3D" parent="."]
@@ -259,6 +275,55 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
 [node name="Camera3D" type="Camera3D" parent="Player/Head"]
 current = true
 
+
+; -- Extra cover objects --
+[node name="Crate4" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0.75, 2)
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Crate4"]
+mesh = SubResource("BoxMesh_crate")
+surface_material_override/0 = SubResource("Mat_crate")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Crate4"]
+shape = SubResource("BoxShape3D_crate")
+
+[node name="Crate5" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.5, 0.75, 2)
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Crate5"]
+mesh = SubResource("BoxMesh_crate")
+surface_material_override/0 = SubResource("Mat_crate")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Crate5"]
+shape = SubResource("BoxShape3D_crate")
+
+[node name="Crate6" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0.75, -4)
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Crate6"]
+mesh = SubResource("BoxMesh_crate")
+surface_material_override/0 = SubResource("Mat_crate")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Crate6"]
+shape = SubResource("BoxShape3D_crate")
+
+[node name="Crate7" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, -8)
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Crate7"]
+mesh = SubResource("BoxMesh_crate")
+surface_material_override/0 = SubResource("Mat_crate")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Crate7"]
+shape = SubResource("BoxShape3D_crate")
+
+[node name="Pipe4" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 2.25, 6)
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Pipe4"]
+mesh = SubResource("CylMesh_pipe")
+surface_material_override/0 = SubResource("Mat_pipe")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Pipe4"]
+shape = SubResource("CylShape_pipe")
+
+[node name="Pipe5" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 2.25, 6)
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Pipe5"]
+mesh = SubResource("CylMesh_pipe")
+surface_material_override/0 = SubResource("Mat_pipe")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Pipe5"]
+shape = SubResource("CylShape_pipe")
 
 ; -- Spawners create 20 enemies + 19 allies at runtime --
 [node name="EnemySpawner" type="Node3D" parent="."]
