@@ -57,7 +57,7 @@ func shoot() -> void:
 	var hit_pos := to
 	if result:
 		hit_pos = result.position
-		var hit := result.collider
+		var hit: Node = result.collider
 		if hit.has_method("take_damage"):
 			hit.take_damage(DAMAGE)
 		elif hit.get_parent() and hit.get_parent().has_method("take_damage"):
