@@ -80,5 +80,5 @@ func _spawn_tracer(from: Vector3, to: Vector3) -> void:
 	tracer.global_position = (from + to) / 2.0
 	tracer.look_at(to, Vector3.UP)
 	tracer.rotate_object_local(Vector3.RIGHT, PI / 2.0)
-	await get_tree().create_timer(0.08).timeout
+	await get_tree().create_timer(0.4).timeout
 	tracer.queue_free()
