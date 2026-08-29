@@ -43,7 +43,7 @@ func _physics_process(delta: float) -> void:
 
 	fire_timer -= delta
 	if Input.is_key_pressed(KEY_S) and fire_timer <= 0.0:
-		fire_timer = 1.0
+		fire_timer = 0.1
 		shoot()
 
 func shoot() -> void:
@@ -79,6 +79,5 @@ func _spawn_tracer(from: Vector3, to: Vector3) -> void:
 	get_parent().add_child(tracer)
 	tracer.global_position = (from + to) / 2.0
 	tracer.look_at(to, Vector3.UP)
-	tracer.rotate_object_local(Vector3.RIGHT, PI / 2.0)
 	await get_tree().create_timer(0.4).timeout
 	tracer.queue_free()
