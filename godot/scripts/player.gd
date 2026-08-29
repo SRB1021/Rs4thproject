@@ -10,6 +10,7 @@ const FIRE_RANGE := 50.0
 @onready var camera: Camera3D = $Head/Camera3D
 
 var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
+var fire_timer: float = 0.0
 
 func _ready() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
@@ -21,8 +22,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		head.rotation.x = clamp(head.rotation.x, -1.4, 1.4)
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		shoot()
 
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():
@@ -41,6 +40,11 @@ func _physics_process(delta: float) -> void:
 		velocity.z = move_toward(velocity.z, 0, SPEED)
 
 	move_and_slide()
+
+	fire_timer -= delta
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and fire_timer <= 0.0:
+		fire_timer = 1.0
+		shoot()
 
 func shoot() -> void:
 	var space := get_world_3d().direct_space_state
