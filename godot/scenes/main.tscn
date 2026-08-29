@@ -47,9 +47,9 @@ size = Vector3(40, 0.5, 40)
 size = Vector3(40, 0.5, 40)
 
 [sub_resource type="StandardMaterial3D" id="Mat_floor"]
-albedo_color = Color(0.18, 0.15, 0.12, 1)
-roughness = 0.95
-metallic = 0.4
+albedo_color = Color(0.25, 0.18, 0.10, 1)
+roughness = 1.0
+metallic = 0.0
 
 ; ---- Crate: rusty container ----
 [sub_resource type="BoxMesh" id="BoxMesh_crate"]
