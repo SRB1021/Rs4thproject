@@ -43,7 +43,7 @@ func _physics_process(delta: float) -> void:
 
 	fire_timer -= delta
 	if Input.is_key_pressed(KEY_S) and fire_timer <= 0.0:
-		fire_timer = 0.05
+		fire_timer = 0.02
 		shoot()
 
 func shoot() -> void:
@@ -68,16 +68,25 @@ func _spawn_tracer(from: Vector3, to: Vector3) -> void:
 	var tracer := MeshInstance3D.new()
 	var mesh := BoxMesh.new()
 	var dist := from.distance_to(to)
-	mesh.size = Vector3(0.02, 0.02, dist)
+	mesh.size = Vector3(0.04, 0.04, dist)
 	tracer.mesh = mesh
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(1.0, 0.9, 0.3)
 	mat.emission_enabled = true
 	mat.emission = Color(1.0, 0.8, 0.1)
-	mat.emission_energy_multiplier = 5.0
+	mat.emission_energy_multiplier = 8.0
 	mesh.surface_set_material(0, mat)
 	get_parent().add_child(tracer)
 	tracer.global_position = (from + to) / 2.0
-	tracer.look_at(to, Vector3.UP)
-	await get_tree().create_timer(0.4).timeout
+	var dir := (to - from).normalized()
+	if dir.length() > 0.01:
+		var xform := Transform3D()
+		xform.basis.z = -dir
+		xform.basis.x = dir.cross(Vector3.UP).normalized()
+		if xform.basis.x.length() < 0.01:
+			xform.basis.x = dir.cross(Vector3.RIGHT).normalized()
+		xform.basis.y = xform.basis.x.cross(-dir).normalized()
+		xform.origin = tracer.global_position
+		tracer.global_transform = xform
+	await get_tree().create_timer(0.15).timeout
 	tracer.queue_free()
