@@ -42,7 +42,7 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 	fire_timer -= delta
-	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and fire_timer <= 0.0:
+	if Input.is_key_pressed(KEY_S) and fire_timer <= 0.0:
 		fire_timer = 1.0
 		shoot()
 
