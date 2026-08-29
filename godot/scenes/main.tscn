@@ -41,10 +41,10 @@ tonemap_exposure = 1.2
 
 ; ---- Floor: dark corroded steel deck ----
 [sub_resource type="BoxMesh" id="BoxMesh_floor"]
-size = Vector3(40, 0.5, 40)
+size = Vector3(160, 0.5, 160)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_floor"]
-size = Vector3(40, 0.5, 40)
+size = Vector3(160, 0.5, 160)
 
 [sub_resource type="StandardMaterial3D" id="Mat_floor"]
 albedo_color = Color(0.25, 0.18, 0.10, 1)

@@ -18,13 +18,13 @@ const ENEMY_SCRIPT := preload("res://scripts/enemy.gd")
 
 # Spread enemies around the far parts of the map
 const SPAWN_POSITIONS := [
-	Vector3(8, 1, -12), Vector3(-8, 1, -12), Vector3(12, 1, -8),
-	Vector3(-12, 1, -8), Vector3(14, 1, -14), Vector3(-14, 1, -14),
-	Vector3(6, 1, -18), Vector3(-6, 1, -18), Vector3(16, 1, -6),
-	Vector3(-16, 1, -6), Vector3(10, 1, -16), Vector3(-10, 1, -16),
-	Vector3(18, 1, -10), Vector3(-18, 1, -10), Vector3(4, 1, -15),
-	Vector3(-4, 1, -15), Vector3(14, 1, -18), Vector3(-14, 1, -18),
-	Vector3(0, 1, -19), Vector3(18, 1, -16),
+	Vector3(20, 1, -30), Vector3(-20, 1, -30), Vector3(35, 1, -20),
+	Vector3(-35, 1, -20), Vector3(40, 1, -40), Vector3(-40, 1, -40),
+	Vector3(15, 1, -50), Vector3(-15, 1, -50), Vector3(50, 1, -15),
+	Vector3(-50, 1, -15), Vector3(30, 1, -45), Vector3(-30, 1, -45),
+	Vector3(55, 1, -30), Vector3(-55, 1, -30), Vector3(10, 1, -55),
+	Vector3(-10, 1, -55), Vector3(45, 1, -55), Vector3(-45, 1, -55),
+	Vector3(0, 1, -60), Vector3(60, 1, -45),
 ]
 
 func _ready() -> void:
