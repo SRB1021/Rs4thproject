@@ -49,13 +49,36 @@ func _physics_process(delta: float) -> void:
 func shoot() -> void:
 	var space := get_world_3d().direct_space_state
 	var from := camera.global_position
-	var to := from + (-camera.global_transform.basis.z * FIRE_RANGE)
+	var dir := -camera.global_transform.basis.z
+	var to := from + (dir * FIRE_RANGE)
 	var query := PhysicsRayQueryParameters3D.create(from, to)
 	query.exclude = [self]
 	var result := space.intersect_ray(query)
+	var hit_pos := to
 	if result:
+		hit_pos = result.position
 		var hit := result.collider
 		if hit.has_method("take_damage"):
 			hit.take_damage(DAMAGE)
 		elif hit.get_parent() and hit.get_parent().has_method("take_damage"):
 			hit.get_parent().take_damage(DAMAGE)
+	_spawn_tracer(from, hit_pos)
+
+func _spawn_tracer(from: Vector3, to: Vector3) -> void:
+	var tracer := MeshInstance3D.new()
+	var mesh := BoxMesh.new()
+	var dist := from.distance_to(to)
+	mesh.size = Vector3(0.02, 0.02, dist)
+	tracer.mesh = mesh
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(1.0, 0.9, 0.3)
+	mat.emission_enabled = true
+	mat.emission = Color(1.0, 0.8, 0.1)
+	mat.emission_energy_multiplier = 5.0
+	mesh.surface_set_material(0, mat)
+	get_parent().add_child(tracer)
+	tracer.global_position = (from + to) / 2.0
+	tracer.look_at(to, Vector3.UP)
+	tracer.rotate_object_local(Vector3.RIGHT, PI / 2.0)
+	await get_tree().create_timer(0.08).timeout
+	tracer.queue_free()
