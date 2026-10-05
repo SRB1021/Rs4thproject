@@ -5,15 +5,22 @@ const JUMP_VELOCITY := 4.5
 const MOUSE_SENSITIVITY := 0.0025
 const DAMAGE := 25.0
 const FIRE_RANGE := 50.0
+const MAX_AMMO := 30
+const MAX_HEALTH := 100.0
 
 @onready var head: Node3D = $Head
 @onready var camera: Camera3D = $Head/Camera3D
 
 var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var fire_timer: float = 0.0
+var ammo: int = MAX_AMMO
+var health: float = MAX_HEALTH
+var hud: CanvasLayer = null
 
 func _ready() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	await get_tree().process_frame
+	hud = get_tree().get_root().find_child("HUD", true, false)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
@@ -22,6 +29,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		head.rotation.x = clamp(head.rotation.x, -1.4, 1.4)
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	if event is InputEventKey and event.pressed and event.keycode == KEY_R:
+		ammo = MAX_AMMO
+		if hud:
+			hud.update_ammo(ammo, MAX_AMMO)
 
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():
@@ -42,9 +53,18 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 	fire_timer -= delta
-	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and fire_timer <= 0.0:
-		fire_timer = 0.02
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and fire_timer <= 0.0 and ammo > 0:
+		fire_timer = 0.1
+		ammo -= 1
+		if hud:
+			hud.update_ammo(ammo, MAX_AMMO)
 		shoot()
+
+func take_damage(amount: float) -> void:
+	health -= amount
+	health = max(health, 0.0)
+	if hud:
+		hud.update_health(health)
 
 func shoot() -> void:
 	var space := get_world_3d().direct_space_state
@@ -60,8 +80,12 @@ func shoot() -> void:
 		var hit: Node = result.collider
 		if hit.has_method("take_damage"):
 			hit.take_damage(DAMAGE)
+			if hud:
+				hud.add_kill()
 		elif hit.get_parent() and hit.get_parent().has_method("take_damage"):
 			hit.get_parent().take_damage(DAMAGE)
+			if hud:
+				hud.add_kill()
 	_spawn_tracer(from, hit_pos)
 
 func _spawn_tracer(from: Vector3, to: Vector3) -> void:

@@ -1,6 +1,7 @@
-[gd_scene load_steps=32 format=3 uid="uid://b1n4mwq8x7v2a"]
+[gd_scene load_steps=33 format=3 uid="uid://b1n4mwq8x7v2a"]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/hud.tscn" id="7b"]
 [ext_resource type="Script" path="res://scripts/enemy.gd" id="2"]
 [ext_resource type="Script" path="res://scripts/flare_flicker.gd" id="3"]
 [ext_resource type="Script" path="res://scripts/ally.gd" id="4"]
@@ -334,3 +335,5 @@ script = ExtResource("5")
 
 [node name="TeamSpawner" type="Node3D" parent="."]
 script = ExtResource("6")
+
+[node name="HUD" parent="." instance=ExtResource("7b")]

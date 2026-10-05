@@ -37,12 +37,12 @@ func _ready() -> void:
 	capsule_shape.radius = 0.4
 	capsule_shape.height = 1.8
 
-	# Enemy uniform: darker grey-green to distinguish from allies
-	uniform_mat.albedo_color = Color(0.25, 0.22, 0.16)
+	# Enemy uniform: red to clearly distinguish from allies
+	uniform_mat.albedo_color = Color(0.55, 0.05, 0.05)
 	uniform_mat.roughness = 0.9
-	vest_mat.albedo_color = Color(0.12, 0.10, 0.08)
+	vest_mat.albedo_color = Color(0.35, 0.03, 0.03)
 	vest_mat.roughness = 0.85
-	helmet_mat.albedo_color = Color(0.15, 0.13, 0.10)
+	helmet_mat.albedo_color = Color(0.4, 0.04, 0.04)
 	helmet_mat.roughness = 0.8
 	rifle_mat.albedo_color = Color(0.06, 0.06, 0.06)
 	rifle_mat.roughness = 0.7
