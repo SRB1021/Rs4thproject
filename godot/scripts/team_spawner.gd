@@ -49,10 +49,12 @@ func _ready() -> void:
 
 func _tint_model(node: Node, color: Color) -> void:
 	if node is MeshInstance3D:
-		for i in node.get_surface_override_material_count():
+		var mi := node as MeshInstance3D
+		var count := mi.mesh.get_surface_count() if mi.mesh else 0
+		for i in count:
 			var mat := StandardMaterial3D.new()
 			mat.albedo_color = color
 			mat.roughness = 0.8
-			node.set_surface_override_material(i, mat)
+			mi.set_surface_override_material(i, mat)
 	for child in node.get_children():
 		_tint_model(child, color)
